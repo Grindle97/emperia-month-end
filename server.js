@@ -69,7 +69,12 @@ app.use('/auth', requireCapability('admin'), authRoutes);
 
 // 15mb: statement uploads arrive base64-encoded in JSON (10 MB file limit).
 app.use('/api', express.json({ limit: '15mb' }), sameOriginJson, api);
-app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: IS_PROD ? '1h' : 0 }));
+// No long caching: the browser re-checks each file (cheap, via ETag), so an
+// update never leaves someone on a new page with an old script.
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: 'index.html',
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => {

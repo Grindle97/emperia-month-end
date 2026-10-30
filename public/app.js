@@ -1043,4 +1043,15 @@ async function init() {
   await loadPeriod(start);
 }
 
-init();
+// If anything fails while the page starts, say so instead of sitting on "Loading…".
+window.addEventListener('error', (ev) => {
+  const main = document.getElementById('main');
+  if (main && main.querySelector('.loading')) {
+    main.replaceChildren(h('div', { class: 'empty-state' }, h('h2', {}, 'The page did not load properly'),
+      h('p', {}, 'Try a hard refresh (Cmd + Shift + R). If it keeps happening, send this to Reece:'), h('p', { class: 'comment' }, String(ev.message || ev.error || 'Unknown error'))));
+  }
+});
+init().catch((err) => {
+  document.getElementById('main').replaceChildren(h('div', { class: 'empty-state' }, h('h2', {}, 'The page did not load properly'),
+    h('p', {}, 'Try a hard refresh (Cmd + Shift + R). If it keeps happening, send this to Reece:'), h('p', { class: 'comment' }, err.message)));
+});
