@@ -18,6 +18,7 @@ const keep = ['XERO_CLIENT_ID', 'XERO_CLIENT_SECRET', 'XERO_SCOPES', 'XERO_ORG_N
 const vars = Object.fromEntries(keep.map((k) => [k, process.env[k] || '']));
 Object.assign(vars, {
   NODE_ENV: 'production',
+  PORT: '8080',
   PUBLIC_URL: publicUrl,
   XERO_REDIRECT_URI: `${publicUrl}/auth/xero/callback`,
   DATA_DIR: '/app/data',

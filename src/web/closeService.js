@@ -4,7 +4,7 @@
 const crypto = require('crypto');
 const store = require('../store/store');
 const { runClose, xeroSource } = require('../recon/close');
-const { registerGrid, loadRegisters, addMonths } = require('../recon/registers');
+const { registerGrid, historicGrid, loadRegisters, addMonths } = require('../recon/registers');
 
 const DONE = new Set(['Reconciled', 'Rounding', 'Explained']);
 
@@ -28,7 +28,7 @@ function replaying(calls) {
     if (!(key in calls)) throw new Error(`Not in the saved Xero snapshot (${name}). Re-run the close to read Xero again.`);
     return calls[key];
   };
-  return ['getAccounts', 'getTrialBalanceReport', 'getUnreconciledBankTransactions', 'getAgedDocuments']
+  return ['getAccounts', 'getTrialBalanceReport', 'getUnreconciledBankTransactions', 'getAgedDocuments', 'getTrackingCategories']
     .reduce((s, n) => ({ ...s, [n]: handler(n) }), {});
 }
 
@@ -57,7 +57,15 @@ async function runFromXero(period, user) {
   store.assertPeriod(period);
   const rec = recording(liveSource());
   const results = await compute(period, rec.source);
-  const run = { period, ranAt: new Date().toISOString(), ranBy: user.email, demo: process.env.DEMO_MODE === '1', results };
+  // Tracking categories for journal lines. Optional: a failure here never stops the close.
+  const tracking = {};
+  for (const key of ['ltd', 'inc']) {
+    try { tracking[key] = rec.source.getTrackingCategories ? await rec.source.getTrackingCategories(key) : []; } catch (err) {
+      console.warn(`Tracking categories unavailable for ${key}: ${err.message}`);
+      tracking[key] = [];
+    }
+  }
+  const run = { period, ranAt: new Date().toISOString(), ranBy: user.email, demo: process.env.DEMO_MODE === '1', results, tracking };
   store.saveSnapshot(period, rec.snapshot());
   store.saveRun(period, run);
   store.audit({ period, by: user.email, action: 'run', detail: 'Read Xero and reconciled both entities' });
@@ -104,14 +112,24 @@ function view(period) {
     });
     for (const j of r.journals) {
       const id = store.journalId(j);
-      journals.push({ ...j, id, entityKey: key, decision: decisions.journals[id] || null });
+      const edit = (decisions.edits || {})[id] || null;
+      journals.push({
+        ...j,
+        id,
+        entityKey: key,
+        lines: edit ? edit.lines : j.lines,
+        originalLines: edit ? j.lines : null,
+        edit: edit ? { by: edit.by, at: edit.at, note: edit.note } : null,
+        decision: decisions.journals[id] || null,
+        chat: (decisions.chats || {})[id] || [],
+      });
     }
     const blockers = [];
     for (const row of rows) {
       if (DONE.has(row.status) || row.reviewed) continue;
       if (row.status === 'Journal proposed') {
         const js = journals.filter((j) => j.entityKey === key && j.lines.some((l) => l.account === row.account));
-        if (js.length && js.every((j) => j.decision)) continue;
+        if (js.length && js.every((j) => j.decision || j.posted)) continue;
         blockers.push({ account: row.account, need: 'Decide the proposed journal' });
       } else if (row.status === 'Needs input') blockers.push({ account: row.account, need: 'Enter the missing input' });
       else if (row.status === 'Break') blockers.push({ account: row.account, need: 'Explain the difference or fix it in Xero' });
@@ -133,6 +151,9 @@ function view(period) {
   return {
     period,
     run: { ranAt: run.ranAt, ranBy: run.ranBy, recomputedAt: run.recomputedAt, demo: run.demo },
+    tracking: run.tracking || { ltd: [], inc: [] },
+    aiEnabled: require('../ai/assistant').configured(),
+    statementFiles: store.loadStatementFiles(period),
     entities,
     intercompany: run.results.intercompany || null,
     journals,
@@ -166,11 +187,12 @@ function schedules(period) {
   for (const key of ['ltd', 'inc']) {
     const rows = (run && run.results[key] && run.results[key].rows) || [];
     out[key] = loadRegisters(key, store.PATHS.registers).map((reg) => {
-      const grid = registerGrid(reg, addMonths(period, -11), addMonths(period, 6));
+      const historic = reg.view === 'historic' || (reg.view !== 'release' && (reg.items || []).every((i) => i.method === 'static'));
+      const grid = historic ? historicGrid(reg, period) : { view: 'release', ...registerGrid(reg, addMonths(period, -11), addMonths(period, 6)) };
       const row = rows.find((r) => r.account.toLowerCase() === String(reg.account).toLowerCase());
       return {
         register: reg.register, account: reg.account, side: reg.side, currency: reg.currency,
-        notes: reg.notes || [], source: reg.source, ...grid,
+        notes: reg.notes || [], source: reg.source, editedAt: reg.editedAt, editedBy: reg.editedBy, ...grid,
         xero: row ? { [period]: row.xero } : {},
       };
     }).sort((a, b) => a.account.localeCompare(b.account));
@@ -178,4 +200,14 @@ function schedules(period) {
   return { period, entities: out };
 }
 
-module.exports = { runFromXero, recompute, view, signoff, schedules, reviewKey, recording, replaying };
+/** Active account names for an entity, from the last Xero read for the period. */
+function chart(period, key) {
+  const snap = store.loadSnapshot(period) || {};
+  const accounts = snap[`getAccounts:${JSON.stringify([key])}`] || [];
+  return accounts
+    .filter((a) => String(a.status || 'ACTIVE').toUpperCase() === 'ACTIVE')
+    .map((a) => ({ name: a.name, code: a.code, class: a._class || a.class, type: a.type }))
+    .sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, { numeric: true }));
+}
+
+module.exports = { chart, runFromXero, recompute, view, signoff, schedules, reviewKey, recording, replaying };

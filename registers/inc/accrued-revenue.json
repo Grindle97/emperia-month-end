@@ -15,8 +15,17 @@
       "id": "inc-acc-schedule",
       "description": "Balance per Sep schedule (Brex interest and other accruals; itemise)",
       "method": "static",
-      "openingBalance": 7794.19
+      "openingBalance": 7794.19,
+      "entries": [
+        {
+          "period": "b/f",
+          "amount": 7794.19,
+          "note": "brought forward at 30 Sep 2026; month not in the workbook"
+        }
+      ]
     }
   ],
-  "openingTotal": 7794.19
+  "openingTotal": 7794.19,
+  "version": 2,
+  "view": "historic"
 }

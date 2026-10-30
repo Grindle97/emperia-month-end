@@ -9,12 +9,21 @@
   "source": "Emperia Ltd BS Reconciliation Sep 2026, Deposits tab",
   "items": [
     {
-      "id": "ltd-dep-bliss",
+      "id": "ltd-dep-bliss-growth-ltd",
       "supplier": "Bliss Growth Ltd",
       "description": "Credit for next hire",
       "method": "static",
+      "entries": [
+        {
+          "period": "2025-03",
+          "amount": 5000.0,
+          "note": "paid"
+        }
+      ],
       "openingBalance": 5000.0
     }
   ],
-  "openingTotal": 5000.0
+  "openingTotal": 5000.0,
+  "version": 2,
+  "view": "historic"
 }

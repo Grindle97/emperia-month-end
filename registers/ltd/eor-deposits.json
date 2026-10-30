@@ -9,80 +9,250 @@
   "source": "Emperia Ltd BS Reconciliation Sep 2026, Deposits tab (employer-of-record deposits, net per employee)",
   "items": [
     {
-      "id": "ltd-eor-0",
-      "description": "Adjustments: EOR deposit refund from Oyster - Tomas Tamulenas adjusted",
+      "id": "ltd-eor-adjustments",
+      "description": "Adjustments",
       "method": "static",
-      "openingBalance": 3396.68
+      "entries": [
+        {
+          "period": "2026-02",
+          "amount": -226.98,
+          "note": "Small difference written off - Deposit return from Oyster - Jadir Santos Junior"
+        },
+        {
+          "period": "2026-05",
+          "amount": -747.25,
+          "note": "Fx fluctuation on EOR deposit refunds from Oyster"
+        },
+        {
+          "period": "2026-05",
+          "amount": 3396.68,
+          "note": "EOR deposit refund from Oyster - Tomas Tamulenas adjusted"
+        }
+      ],
+      "openingBalance": 2422.45
     },
     {
-      "id": "ltd-eor-1",
-      "description": "Adjustments: Fx fluctuation on EOR deposit refunds from Oyster",
-      "method": "static",
-      "openingBalance": -747.25
-    },
-    {
-      "id": "ltd-eor-2",
-      "description": "Adjustments: Small difference written off - Deposit return from Oyster - ",
-      "method": "static",
-      "openingBalance": -226.98
-    },
-    {
-      "id": "ltd-eor-3",
+      "id": "ltd-eor-emma-preti",
       "description": "Emma Preti",
       "method": "static",
+      "entries": [
+        {
+          "period": "2023-07",
+          "amount": 10864.55,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": 39205.1,
+          "note": "Rippling deposit paid"
+        },
+        {
+          "period": "2026-03",
+          "amount": -10741.17,
+          "note": "Oyster HR Inc. refund"
+        }
+      ],
       "openingBalance": 39328.48
     },
     {
-      "id": "ltd-eor-4",
+      "id": "ltd-eor-exchange-rate-fluctuation",
       "description": "Exchange rate fluctuation",
       "method": "static",
+      "entries": [
+        {
+          "period": "b/f",
+          "amount": 79.69,
+          "note": " deposit paid"
+        }
+      ],
       "openingBalance": 79.69
     },
     {
-      "id": "ltd-eor-5",
+      "id": "ltd-eor-jadir-lino-dos-santos-junior",
       "description": "Jadir Lino dos Santos Junior",
       "method": "static",
+      "entries": [
+        {
+          "period": "2023-07",
+          "amount": 3212.88,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-02",
+          "amount": -2985.9,
+          "note": "Oyster HR Inc. refund"
+        }
+      ],
       "openingBalance": 226.98
     },
     {
-      "id": "ltd-eor-6",
+      "id": "ltd-eor-muhammad-zeeshan",
       "description": "Muhammad Zeeshan",
       "method": "static",
+      "entries": [
+        {
+          "period": "2025-08",
+          "amount": 5032.65,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": 5749.59,
+          "note": "Rippling deposit paid"
+        },
+        {
+          "period": "2026-02",
+          "amount": -5749.59,
+          "note": "Rippling refund"
+        },
+        {
+          "period": "2026-03",
+          "amount": -5157.57,
+          "note": "Oyster HR Inc. refund"
+        }
+      ],
       "openingBalance": -124.92
     },
     {
-      "id": "ltd-eor-7",
+      "id": "ltd-eor-muhammad-zonaib-imtiaz",
       "description": "Muhammad Zonaib Imtiaz",
       "method": "static",
+      "entries": [
+        {
+          "period": "2023-07",
+          "amount": 5125.63,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": 6834.35,
+          "note": "Rippling deposit paid"
+        },
+        {
+          "period": "2026-02",
+          "amount": -6834.35,
+          "note": "Rippling refund"
+        },
+        {
+          "period": "2026-03",
+          "amount": -4983.63,
+          "note": "Oyster HR Inc. refund"
+        }
+      ],
       "openingBalance": 142.0
     },
     {
-      "id": "ltd-eor-8",
+      "id": "ltd-eor-shahzaib-asim",
       "description": "Shahzaib Asim",
       "method": "static",
+      "entries": [
+        {
+          "period": "2024-05",
+          "amount": 5624.88,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": 6334.26,
+          "note": "Rippling deposit paid"
+        },
+        {
+          "period": "2026-02",
+          "amount": -6334.26,
+          "note": "Rippling refund"
+        },
+        {
+          "period": "2026-03",
+          "amount": -5416.95,
+          "note": "Oyster HR Inc. refund"
+        }
+      ],
       "openingBalance": 207.93
     },
     {
-      "id": "ltd-eor-9",
+      "id": "ltd-eor-stephen-cherlapally",
       "description": "Stephen Cherlapally",
       "method": "static",
+      "entries": [
+        {
+          "period": "2023-07",
+          "amount": 5543.67,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": 5668.54,
+          "note": "Rippling deposit paid"
+        },
+        {
+          "period": "2026-03",
+          "amount": -5313.72,
+          "note": "Oyster HR Inc. refund"
+        },
+        {
+          "period": "2026-05",
+          "amount": -5668.54,
+          "note": "Rippling refund"
+        }
+      ],
       "openingBalance": 229.95
     },
     {
-      "id": "ltd-eor-10",
+      "id": "ltd-eor-tomas-gavelis",
       "description": "Tomas Gavelis",
       "method": "static",
+      "entries": [
+        {
+          "period": "2024-04",
+          "amount": 1658.71,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": 2480.52,
+          "note": "Rippling deposit paid"
+        },
+        {
+          "period": "2026-03",
+          "amount": -1569.49,
+          "note": "Oyster HR Inc. refund"
+        },
+        {
+          "period": "2026-05",
+          "amount": 656.71,
+          "note": "Rippling deposit paid"
+        }
+      ],
       "openingBalance": 3226.45
     },
     {
-      "id": "ltd-eor-11",
+      "id": "ltd-eor-tomas-tamulenas",
       "description": "Tomas Tamulenas",
       "method": "static",
+      "entries": [
+        {
+          "period": "2023-07",
+          "amount": 3543.67,
+          "note": "Oyster HR Inc. deposit paid"
+        },
+        {
+          "period": "2026-01",
+          "amount": -3543.67,
+          "note": "Oyster HR Inc. refund"
+        },
+        {
+          "period": "2026-03",
+          "amount": -3396.68,
+          "note": "Oyster HR Inc. refund"
+        }
+      ],
       "openingBalance": -3396.68
     }
   ],
   "openingTotal": 42342.33,
   "notes": [
     "Several employees carry small residual balances after deposit refunds (e.g. Muhammad Zeeshan -\u00a3124.92, Stephen Cherlapally \u00a3229.95). Consider clearing these to FX or write-off."
-  ]
+  ],
+  "version": 2,
+  "view": "historic"
 }

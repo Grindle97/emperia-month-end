@@ -80,8 +80,16 @@ function tbReport(rows, overrides = {}) {
   };
 }
 
+// P&L accounts the schedules release to, as named in Emperia's Xero.
+const PL = ['Audit & Accountancy Fees', 'Bank Fees', 'Insurance', 'IT - Software - Cloud Services', 'IT - Software - Marketing',
+  'IT - Software - Productivity', 'IT - Software - Sales Enablement', 'IT - Software - Security', 'Marketing - Events',
+  'Professional fees', 'Staff Training - Coaching', 'Travel - International', 'Travel - National', 'Unrealised Currency Gains'];
+
 function chart(rows) {
-  return rows.map(([name, cls, type, sys]) => ({ accountID: `acc-${name}`, name, _class: cls, type, systemAccount: sys || undefined }));
+  return [
+    ...rows.map(([name, cls, type, sys]) => ({ accountID: `acc-${name}`, name, _class: cls, type, systemAccount: sys || undefined, status: 'ACTIVE' })),
+    ...PL.map((name, i) => ({ accountID: `pl-${i}`, name, code: String(400 + i), _class: 'EXPENSE', type: 'OVERHEADS', status: 'ACTIVE' })),
+  ];
 }
 
 /** A source with fixed TBs per entity and period end; aged docs supplied per test. */
@@ -91,6 +99,7 @@ function fixtureSource({ tb = {}, aged = {}, bank = {} } = {}) {
     async getAccounts(key) { return chart(base[key]); },
     async getTrialBalanceReport(key, date) { return tbReport(base[key], (tb[key] && tb[key][date]) || {}); },
     async getUnreconciledBankTransactions(key) { return bank[key] || []; },
+    async getTrackingCategories() { return [{ id: 'demo-dept', name: 'Department', options: ['Sales', 'Product', 'Operations'] }]; },
     async getAgedDocuments(key, type) { return (aged[key] && aged[key][type]) || { invoices: [], credits: [] }; },
   };
 }

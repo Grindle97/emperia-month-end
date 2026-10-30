@@ -13,10 +13,24 @@
   "items": [
     {
       "id": "ltd-ct-fy24",
-      "description": "R&D claim FY24, received 5 June 2025",
+      "description": "R&D tax credit claim FY24 (y/e May 2024)",
       "method": "static",
+      "entries": [
+        {
+          "period": "2024-05",
+          "amount": -521792.21,
+          "note": "R&D claim FY24 recognised"
+        },
+        {
+          "period": "2025-06",
+          "amount": 521792.21,
+          "note": "Received 5 June 2025"
+        }
+      ],
       "openingBalance": 0.0
     }
   ],
-  "openingTotal": 0.0
+  "openingTotal": 0.0,
+  "version": 2,
+  "view": "historic"
 }

@@ -83,7 +83,7 @@ test('October: unposted prepayment releases become a proposed journal', async ()
   const pp = row(res, 'ltd', 'Prepayments');
   assert.equal(pp.supporting, 9428.18);
   assert.equal(pp.status, STATUS.JOURNAL);
-  const j = res.ltd.journals.find((x) => /prepayments/.test(x.narration));
+  const j = res.ltd.journals.find((x) => /prepayment/i.test(x.narration));
   const dr = j.lines.reduce((s, l) => s + l.debit, 0);
   const cr = j.lines.reduce((s, l) => s + l.credit, 0);
   assert.equal(Math.round(dr * 100), Math.round(cr * 100), 'journal balances');

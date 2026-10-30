@@ -42,5 +42,7 @@
       "note": "Mapped to Travel - International (494) on setup; check the bill coding in Xero."
     }
   ],
-  "openingTotal": 16930.0
+  "openingTotal": 16930.0,
+  "version": 2,
+  "view": "release"
 }

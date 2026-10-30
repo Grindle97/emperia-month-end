@@ -47,7 +47,23 @@ function monthEnd(month) {
  * @returns {{balance: number, releases: Object<string, number>}} balance at the
  *   end of toMonth, and the amount released in each month along the way.
  */
+/** Balance of a held item built from dated entries ('b/f' = brought forward). */
+function entriesBalance(item, month) {
+  return round2((item.entries || []).reduce((t, e) => (e.period === 'b/f' || e.period <= month ? t + Number(e.amount || 0) : t), 0));
+}
+
 function itemSchedule(item, registerOpeningDate, toMonth) {
+  // Held items with their own history (accruals, deposits, loans): the balance
+  // is the sum of dated entries, until the item is closed.
+  if (item.method === 'static' && Array.isArray(item.entries) && item.entries.length) {
+    const releases = {};
+    if (item.closedPeriod && toMonth >= item.closedPeriod) {
+      const before = entriesBalance(item, addMonths(item.closedPeriod, -1));
+      if (before !== 0) releases[item.closedPeriod] = before;
+      return { balance: 0, releases };
+    }
+    return { balance: entriesBalance(item, toMonth), releases };
+  }
   const seeded = !item.bookedPeriod;
   const firstMonth = seeded ? addMonths(monthOf(registerOpeningDate), 1) : item.bookedPeriod;
   const releases = {};
@@ -137,6 +153,46 @@ function registerGrid(register, fromMonth, toMonth) {
   return { months, openMonth, items, totals };
 }
 
+/**
+ * Historic view for held registers (accruals, deposits, loans, tax): each item
+ * shows what was booked in the month it relates to, and the balance at the
+ * close month sits on the far right. Only months with activity get a column.
+ */
+function historicGrid(register, period) {
+  const months = new Set();
+  let hasBf = false;
+  const rows = (register.items || []).map((item) => {
+    const cells = {};
+    let bf = 0;
+    for (const e of item.entries || []) {
+      if (e.period === 'b/f') { bf = round2(bf + Number(e.amount || 0)); hasBf = true; continue; }
+      if (e.period > period) continue;
+      cells[e.period] = round2((cells[e.period] || 0) + Number(e.amount || 0));
+      months.add(e.period);
+    }
+    if (!item.entries || !item.entries.length) { bf = round2(Number(item.openingBalance) || 0); if (bf) hasBf = true; }
+    if (item.closedPeriod && item.closedPeriod <= period) {
+      const before = item.entries && item.entries.length ? entriesBalance(item, addMonths(item.closedPeriod, -1)) : Number(item.openingBalance) || 0;
+      if (before) { cells[item.closedPeriod] = round2((cells[item.closedPeriod] || 0) - before); months.add(item.closedPeriod); }
+    }
+    const balance = itemSchedule(item, register.openingDate, period).balance;
+    const recent = Object.keys(cells).some((m) => m > addMonths(period, -12));
+    return { item, bf, cells, balance, show: balance !== 0 || recent || (register.items || []).length <= 8 };
+  });
+  const cols = [...months].sort();
+  const totals = Object.fromEntries(cols.map((m) => [m, round2(rows.reduce((t, r) => t + (r.cells[m] || 0), 0))]));
+  return {
+    view: 'historic',
+    months: cols,
+    hasBf,
+    bfTotal: round2(rows.reduce((t, r) => t + r.bf, 0)),
+    items: rows.filter((r) => r.show),
+    hiddenCount: rows.filter((r) => !r.show).length,
+    totals,
+    balance: round2(rows.reduce((t, r) => t + r.balance, 0)),
+  };
+}
+
 function loadRegisters(entityKey, registerDir = REGISTER_DIR) {
   const dir = path.join(registerDir, entityKey);
   if (!fs.existsSync(dir)) return [];
@@ -145,4 +201,4 @@ function loadRegisters(entityKey, registerDir = REGISTER_DIR) {
     .map((f) => ({ ...JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')), _file: path.join(dir, f) }));
 }
 
-module.exports = { itemSchedule, registerBalance, registerGrid, loadRegisters, addMonths, monthEnd, monthOf, REGISTER_DIR };
+module.exports = { itemSchedule, registerBalance, registerGrid, historicGrid, entriesBalance, loadRegisters, addMonths, monthEnd, monthOf, REGISTER_DIR };

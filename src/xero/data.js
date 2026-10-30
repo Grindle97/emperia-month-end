@@ -127,7 +127,23 @@ async function getUnappliedPaymentsUpTo(entityKey, kind, contactType, toDate) {
     }, type));
 }
 
+/** Active tracking categories and their active options (e.g. Department). */
+async function getTrackingCategories(entityKey) {
+  const { client, tenantId } = await clientFor(entityKey);
+  return call('Tracking categories', async () => {
+    const res = await client.accountingApi.getTrackingCategories(tenantId, undefined, 'Name ASC', false);
+    return (res.body.trackingCategories || [])
+      .filter((c) => String(c.status || 'ACTIVE').toUpperCase() === 'ACTIVE')
+      .map((c) => ({
+        id: c.trackingCategoryID,
+        name: c.name,
+        options: (c.options || []).filter((o) => String(o.status || 'ACTIVE').toUpperCase() === 'ACTIVE').map((o) => o.name),
+      }));
+  });
+}
+
 module.exports = {
+  getTrackingCategories,
   getOrganisation,
   getAccounts,
   getTrialBalanceReport,

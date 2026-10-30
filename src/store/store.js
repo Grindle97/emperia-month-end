@@ -43,6 +43,50 @@ function ensureSeeded() {
   if (!fs.existsSync(PATHS.registers)) copyDir(path.join(ROOT, 'registers'), PATHS.registers);
   if (!fs.existsSync(PATHS.inputs)) copyDir(path.join(ROOT, 'inputs'), PATHS.inputs);
   for (const p of [PATHS.runs, PATHS.decisions]) fs.mkdirSync(p, { recursive: true });
+  upgradeRegisters();
+}
+
+/**
+ * When the repo ships a newer version of a register (e.g. history added) and
+ * nobody has edited the live copy through the dashboard, replace it. The old
+ * file is kept as _backup-<name>-v<n>.json (ignored by the loader). Edited
+ * registers are never touched.
+ */
+function upgradeRegisters() {
+  const repoDir = path.join(ROOT, 'registers');
+  if (!fs.existsSync(repoDir)) return;
+  for (const entity of fs.readdirSync(repoDir)) {
+    const rdir = path.join(repoDir, entity);
+    if (!fs.statSync(rdir).isDirectory()) continue;
+    for (const f of fs.readdirSync(rdir).filter((x) => x.endsWith('.json') && !x.startsWith('_'))) {
+      const repo = readJson(path.join(rdir, f));
+      const liveFile = path.join(PATHS.registers, entity, f);
+      const live = readJson(liveFile);
+      if (!repo) continue;
+      if (!live) { fs.mkdirSync(path.dirname(liveFile), { recursive: true }); fs.copyFileSync(path.join(rdir, f), liveFile); continue; }
+      if ((repo.version || 1) > (live.version || 1) && !live.editedAt) {
+        writeJson(path.join(PATHS.registers, entity, `_backup-${f.replace('.json', '')}-v${live.version || 1}.json`), live);
+        writeJson(liveFile, repo);
+        console.log(`Register ${entity}/${f} upgraded to v${repo.version}.`);
+      }
+    }
+  }
+}
+
+// --- registers (edited from the dashboard)
+function registerFile(entity, name) {
+  if (!/^[a-z0-9-]+$/.test(name) || !['ltd', 'inc'].includes(entity)) throw Object.assign(new Error('Unknown register.'), { status: 400 });
+  return path.join(PATHS.registers, entity, `${name}.json`);
+}
+function updateRegister(entity, name, by, fn) {
+  const file = registerFile(entity, name);
+  const reg = readJson(file);
+  if (!reg) throw Object.assign(new Error('Unknown register.'), { status: 404 });
+  fn(reg);
+  reg.editedAt = new Date().toISOString();
+  reg.editedBy = by;
+  writeJson(file, reg);
+  return reg;
 }
 
 function readJson(file, fallback = null) {
@@ -123,6 +167,32 @@ function updateDecisions(period, fn) {
   return d;
 }
 
+// --- uploaded bank statements: files under statements/, index per period
+const STATEMENTS = path.join(DATA_DIR, 'statements');
+const statementIndex = (period) => path.join(STATEMENTS, `${period}.json`);
+function loadStatementFiles(period) {
+  return readJson(statementIndex(period), { ltd: {}, inc: {} });
+}
+function saveStatementFile(period, entity, account, { filename, contentType, buffer, by, extracted }) {
+  const ext = (String(filename).match(/\.([a-z0-9]{1,5})$/i) || [, 'bin'])[1].toLowerCase();
+  const id = crypto.randomBytes(8).toString('hex');
+  const rel = path.join(period, entity, `${id}.${ext}`);
+  fs.mkdirSync(path.join(STATEMENTS, period, entity), { recursive: true });
+  fs.writeFileSync(path.join(STATEMENTS, rel), buffer);
+  const idx = loadStatementFiles(period);
+  idx[entity] = idx[entity] || {};
+  idx[entity][account] = { file: rel, name: String(filename).slice(0, 200), contentType, size: buffer.length, by, at: new Date().toISOString(), extracted: extracted || null };
+  writeJson(statementIndex(period), idx);
+  return idx[entity][account];
+}
+function statementFilePath(period, entity, account) {
+  const meta = (loadStatementFiles(period)[entity] || {})[account];
+  if (!meta) return null;
+  const full = path.resolve(STATEMENTS, meta.file);
+  if (!full.startsWith(path.resolve(STATEMENTS))) return null;
+  return { full, meta };
+}
+
 // --- improvement suggestions from people using the dashboard
 const feedbackFile = () => path.join(DATA_DIR, 'feedback.jsonl');
 function addFeedback(entry) {
@@ -161,8 +231,8 @@ function journalId(j) {
 }
 
 module.exports = {
-  DATA_DIR, PATHS, ensureSeeded, validPeriod, assertPeriod,
+  DATA_DIR, PATHS, ensureSeeded, upgradeRegisters, updateRegister, registerFile, readJson, writeJson, validPeriod, assertPeriod,
   listPeriods, loadRun, saveRun, loadSnapshot, saveSnapshot,
   loadInputs, saveFx, saveStatement, saveExplanation,
-  loadDecisions, updateDecisions, audit, readAudit, journalId, addFeedback, readFeedback,
+  loadDecisions, updateDecisions, audit, readAudit, journalId, addFeedback, readFeedback, loadStatementFiles, saveStatementFile, statementFilePath,
 };

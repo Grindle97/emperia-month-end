@@ -11,3 +11,4 @@ railway-env.txt
 *-env.txt
 # Client workbooks stay local (reference only)
 docs/reference/
+.wrangler/

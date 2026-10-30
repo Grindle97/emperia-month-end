@@ -1,0 +1,18 @@
+# Deploys cloudflare/worker.js as the "emperia-close" Worker.
+#   cd cloudflare && npx wrangler deploy
+# Settings mirror what the Cloudflare dashboard holds, so a deploy only changes the code.
+name = "emperia-close"
+main = "worker.js"
+compatibility_date = "2026-10-30"
+workers_dev = true
+preview_urls = false
+
+[vars]
+# Not a secret: just the Railway address the Worker forwards to.
+ORIGIN = "https://emperia-month-end-production.up.railway.app"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true

@@ -16,14 +16,68 @@
       "supplier": "Google Cloud",
       "expenseAccount": "IT - Software - Cloud Services",
       "method": "static",
-      "openingBalance": 2601.37
+      "openingBalance": 2601.37,
+      "entries": [
+        {
+          "period": "2026-05",
+          "amount": 2555.02,
+          "note": "accrued"
+        },
+        {
+          "period": "2026-06",
+          "amount": -235.14,
+          "note": "released / adjusted"
+        },
+        {
+          "period": "2026-07",
+          "amount": 329.79,
+          "note": "accrued"
+        },
+        {
+          "period": "2026-08",
+          "amount": 108.2,
+          "note": "accrued"
+        },
+        {
+          "period": "2026-09",
+          "amount": -156.5,
+          "note": "released / adjusted"
+        }
+      ]
     },
     {
       "id": "ltd-acc-13",
       "supplier": "Payroll - Tomas Gavelis",
       "expenseAccount": null,
       "method": "static",
-      "openingBalance": 2860.09
+      "openingBalance": 2860.09,
+      "entries": [
+        {
+          "period": "2026-05",
+          "amount": 3269.2,
+          "note": "accrued"
+        },
+        {
+          "period": "2026-06",
+          "amount": -38.9,
+          "note": "released / adjusted"
+        },
+        {
+          "period": "2026-07",
+          "amount": -55.23,
+          "note": "released / adjusted"
+        },
+        {
+          "period": "2026-08",
+          "amount": -320.75,
+          "note": "released / adjusted"
+        },
+        {
+          "period": "2026-09",
+          "amount": 5.77,
+          "note": "accrued"
+        }
+      ]
     },
     {
       "id": "ltd-acc-15",
@@ -31,7 +85,24 @@
       "expenseAccount": "Professional fees",
       "method": "static",
       "openingBalance": 5070.0,
-      "expenseAccountCode": "443"
+      "expenseAccountCode": "443",
+      "entries": [
+        {
+          "period": "2026-05",
+          "amount": 12000.0,
+          "note": "accrued"
+        },
+        {
+          "period": "2026-06",
+          "amount": -3465.0,
+          "note": "released / adjusted"
+        },
+        {
+          "period": "2026-09",
+          "amount": -3465.0,
+          "note": "released / adjusted"
+        }
+      ]
     },
     {
       "id": "ltd-acc-17",
@@ -39,8 +110,17 @@
       "expenseAccount": "Audit & Accountancy Fees",
       "method": "static",
       "openingBalance": 2000.0,
-      "expenseAccountCode": "401"
+      "expenseAccountCode": "401",
+      "entries": [
+        {
+          "period": "2026-05",
+          "amount": 2000.0,
+          "note": "accrued"
+        }
+      ]
     }
   ],
-  "openingTotal": 12531.46
+  "openingTotal": 12531.46,
+  "version": 2,
+  "view": "historic"
 }

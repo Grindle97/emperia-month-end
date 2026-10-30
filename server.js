@@ -67,7 +67,8 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 900, standardHeaders: 'draf
 // Connecting Xero: admins only (plus AUTH_SETUP_TOKEN inside the router when set).
 app.use('/auth', requireCapability('admin'), authRoutes);
 
-app.use('/api', express.json({ limit: '100kb' }), sameOriginJson, api);
+// 15mb: statement uploads arrive base64-encoded in JSON (10 MB file limit).
+app.use('/api', express.json({ limit: '15mb' }), sameOriginJson, api);
 app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: IS_PROD ? '1h' : 0 }));
 
 const port = Number(process.env.PORT) || 3000;

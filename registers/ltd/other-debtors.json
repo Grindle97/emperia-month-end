@@ -12,8 +12,17 @@
       "id": "ltd-od-web",
       "description": "Website design advance, release when supplier invoice received",
       "method": "static",
-      "openingBalance": 2090.0
+      "openingBalance": 2090.0,
+      "entries": [
+        {
+          "period": "b/f",
+          "amount": 2090.0,
+          "note": "brought forward at 30 Sep 2026; month not in the workbook"
+        }
+      ]
     }
   ],
-  "openingTotal": 2090.0
+  "openingTotal": 2090.0,
+  "version": 2,
+  "view": "historic"
 }

@@ -13,8 +13,17 @@
       "supplier": "Rello",
       "description": "Rent deposit",
       "method": "static",
-      "openingBalance": 2765.45
+      "openingBalance": 2765.45,
+      "entries": [
+        {
+          "period": "b/f",
+          "amount": 2765.45,
+          "note": "brought forward at 30 Sep 2026; month not in the workbook"
+        }
+      ]
     }
   ],
-  "openingTotal": 2765.45
+  "openingTotal": 2765.45,
+  "version": 2,
+  "view": "historic"
 }

@@ -351,13 +351,27 @@ function detail(key, r, sym) {
 function actions(key, r, sym) {
   const out = [];
   const period = state.period;
-  if (r.rule === 'bank' && can('input')) {
+  if (r.rule === 'bank') {
+    const files = (state.view.statementFiles || {})[key] || {};
+    const f = files[r.account];
     const inp = h('input', { type: 'text', inputmode: 'decimal', value: r.supporting ?? '', placeholder: '0.00', id: `stmt-${r.account}` });
-    out.push(h('div', { class: 'action' },
+    const fileLink = f ? h('p', {}, 'Statement: ', h('a', { href: `/api/close/${period}/statement-file/${key}?account=${encodeURIComponent(r.account)}`, target: '_blank', rel: 'noopener' }, f.name),
+      ` (uploaded by ${who(f.by)}, ${when(f.at)})`) : h('p', {}, 'No statement uploaded yet.');
+    const ex = f && f.extracted;
+    const suggestion = ex && ex.found && typeof ex.closingBalance === 'number'
+      ? h('div', { class: 'ai-note' },
+        `Statement shows ${fmt(ex.closingBalance)}${ex.statementDate ? ` at ${ex.statementDate}` : ''}${ex.currency ? ` (${ex.currency})` : ''}.`,
+        ex.note ? h('span', { class: 'status-word' }, ex.note) : null,
+        can('input') ? h('button', { class: 'linkish', type: 'button', onclick: (ev) => { ev.stopPropagation(); inp.value = ex.closingBalance; inp.focus(); } }, 'Use this balance') : null)
+      : (ex && !ex.found ? h('div', { class: 'ai-note' }, ex.note || 'The balance could not be read from the statement; enter it by hand.') : null);
+    const upload = h('input', { type: 'file', accept: '.pdf,.png,.jpg,.jpeg,.csv,application/pdf,image/png,image/jpeg,text/csv', id: `file-${r.account}`, class: 'sr', onchange: (ev) => uploadStatement(key, r.account, ev.target.files[0]) });
+    out.push(h('div', { class: 'action', onclick: (ev) => ev.stopPropagation() },
       h('label', { for: `stmt-${r.account}` }, `Statement balance at ${state.view.entities[key].end}`),
-      inp,
-      h('div', { class: 'row-btns' },
-        h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: (ev) => { ev.stopPropagation(); act(() => api('PUT', `/close/${period}/statement`, { entity: key, account: r.account, amount: inp.value }), 'Statement balance saved.'); } }, 'Save balance'))));
+      can('input') ? inp : h('p', {}, r.supporting !== null ? fmt(r.supporting, sym) : 'Not entered'),
+      can('input') ? h('div', { class: 'row-btns' },
+        h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => act(() => api('PUT', `/close/${period}/statement`, { entity: key, account: r.account, amount: inp.value }), 'Statement balance saved.') }, 'Save balance'),
+        h('label', { class: 'btn btn-sm', for: `file-${r.account}` }, f ? 'Replace statement' : 'Upload statement'), upload) : null,
+      fileLink, suggestion));
   }
   const explainable = r.difference !== null && Math.abs(r.difference) > 0.05;
   if (explainable && can('explain')) {
@@ -392,35 +406,157 @@ function actions(key, r, sym) {
   return out;
 }
 
+async function uploadStatement(key, account, file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('Keep statements under 10 MB.', true); return; }
+  const contentType = file.type || (/\.csv$/i.test(file.name) ? 'text/csv' : '');
+  const data = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(new Error('Could not read the file.'));
+    r.readAsDataURL(file);
+  });
+  toast(state.view.aiEnabled ? 'Uploading and reading the statement…' : 'Uploading…');
+  act(async () => {
+    const v = await api('POST', `/close/${state.period}/statement-file`, { entity: key, account, filename: file.name, contentType, data });
+    return v;
+  }, 'Statement saved.');
+}
+
 // ---------- journals
+// Journal editing state: id -> working lines (only while editing).
+state.editing = state.editing || {};
+state.charts = state.charts || {};
+
+async function ensureChart(key) {
+  if (state.charts[key]) return state.charts[key];
+  try {
+    state.charts[key] = (await api('GET', `/close/${state.period}/accounts/${key}`)).accounts;
+  } catch (err) { state.charts[key] = []; toast(err.message, true); }
+  return state.charts[key];
+}
+const cats = (key) => ((state.view.tracking || {})[key] || []);
+const trackText = (t) => (t || []).map((x) => x.option).join(', ');
+const cloneLines = (lines) => lines.map((l) => ({ ...l, tracking: (l.tracking || []).map((t) => ({ ...t })) }));
+
+async function startEdit(j, lines) {
+  await ensureChart(j.entityKey);
+  state.editing[j.id] = cloneLines(lines || j.lines);
+  render();
+}
+
+function lineTable(j, sym) {
+  const tc = cats(j.entityKey);
+  const dr = j.lines.reduce((s, l) => s + l.debit, 0);
+  const cr = j.lines.reduce((s, l) => s + l.credit, 0);
+  return h('table', { class: 'mini' },
+    h('thead', {}, h('tr', {}, h('th', {}, 'Account'), h('th', {}, 'Description'), tc.map((c) => h('th', {}, c.name)), h('th', { class: 'num' }, 'Debit'), h('th', { class: 'num' }, 'Credit'))),
+    h('tbody', {}, j.lines.map((l) => h('tr', {}, h('td', {}, l.account), h('td', {}, l.description),
+      tc.map((c) => h('td', {}, ((l.tracking || []).find((t) => t.name === c.name) || {}).option || '')),
+      h('td', { class: 'num' }, l.debit ? fmt(l.debit, sym) : ''), h('td', { class: 'num' }, l.credit ? fmt(l.credit, sym) : '')))),
+    h('tfoot', {}, h('tr', {}, h('td', { colspan: 2 + tc.length }, 'Total'), h('td', { class: 'num' }, fmt(dr, sym)), h('td', { class: 'num' }, fmt(cr, sym)))));
+}
+
+function editTable(j, sym) {
+  const lines = state.editing[j.id];
+  const tc = cats(j.entityKey);
+  const chart = state.charts[j.entityKey] || [];
+  const listId = `chart-${j.entityKey}`;
+  const num = (v) => Math.round((Number(String(v).replace(/[,£$\s]/g, '')) || 0) * 100) / 100;
+  const dr = lines.reduce((t, l) => t + num(l.debit), 0);
+  const cr = lines.reduce((t, l) => t + num(l.credit), 0);
+  const balanced = Math.abs(dr - cr) < 0.005;
+  const note = h('input', { class: 'field', type: 'text', placeholder: 'Why the change (kept in the log)' });
+  const rows = lines.map((l, i) => {
+    const set = (k) => (ev) => { l[k] = ev.target.value; };
+    const setNum = (k) => (ev) => { l[k] = ev.target.value; render(); };
+    return h('tr', {},
+      h('td', {}, h('input', { class: 'field', type: 'text', list: listId, value: l.account, 'aria-label': `Line ${i + 1} account`, onchange: set('account') })),
+      h('td', {}, h('input', { class: 'field', type: 'text', value: l.description || '', 'aria-label': `Line ${i + 1} description`, onchange: set('description') })),
+      tc.map((c) => {
+        const cur = (l.tracking || []).find((t) => t.name === c.name);
+        return h('td', {}, h('select', { class: 'field', 'aria-label': `Line ${i + 1} ${c.name}`, onchange: (ev) => {
+          l.tracking = (l.tracking || []).filter((t) => t.name !== c.name);
+          if (ev.target.value) l.tracking.push({ name: c.name, option: ev.target.value });
+        } }, h('option', { value: '' }, '—'), c.options.map((o) => h('option', { value: o, selected: cur && cur.option === o }, o))));
+      }),
+      h('td', {}, h('input', { class: 'field num', type: 'text', inputmode: 'decimal', value: l.debit || '', 'aria-label': `Line ${i + 1} debit`, onchange: setNum('debit') })),
+      h('td', {}, h('input', { class: 'field num', type: 'text', inputmode: 'decimal', value: l.credit || '', 'aria-label': `Line ${i + 1} credit`, onchange: setNum('credit') })),
+      h('td', {}, h('button', { class: 'linkish', type: 'button', 'aria-label': `Remove line ${i + 1}`, onclick: () => { lines.splice(i, 1); render(); } }, 'Remove')));
+  });
+  return h('div', { class: 'edit-wrap' },
+    h('datalist', { id: listId }, chart.map((a) => h('option', { value: a.name }, a.code ? `${a.code}` : ''))),
+    h('table', { class: 'mini edit-lines' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Account'), h('th', {}, 'Description'), tc.map((c) => h('th', {}, c.name)), h('th', { class: 'num' }, 'Debit'), h('th', { class: 'num' }, 'Credit'), h('th', {}))),
+      h('tbody', {}, rows),
+      h('tfoot', {}, h('tr', {}, h('td', { colspan: 2 + tc.length }, balanced ? 'Balanced' : `Out by ${fmt(dr - cr, sym)}`), h('td', { class: 'num' }, fmt(dr, sym)), h('td', { class: 'num' }, fmt(cr, sym)), h('td', {})))),
+    h('div', { class: 'journal-actions' },
+      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { lines.push({ account: '', description: '', debit: '', credit: '', tracking: [] }); render(); } }, 'Add line'),
+      note,
+      h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !balanced, onclick: () => act(async () => {
+        const v = await api('POST', `/close/${state.period}/journals/${j.id}/edit`, { lines: lines.map((l) => ({ ...l, debit: num(l.debit), credit: num(l.credit) })), note: note.value });
+        delete state.editing[j.id];
+        return v;
+      }, 'Journal updated. It needs approving again.') }, 'Save lines'),
+      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { delete state.editing[j.id]; render(); } }, 'Cancel')));
+}
+
+function chatPanel(id, j) {
+  const v = state.view;
+  const thread = id === 'general' ? ((v.decisions.chats || {}).general || []) : (j.chat || []);
+  const sym = j ? ENTITY[j.entityKey].sym : '';
+  const q = h('textarea', { class: 'field', rows: '2', placeholder: id === 'general' ? 'Ask about this close, e.g. "What should I check before signing off Ltd?"' : 'Ask about this journal, e.g. "Should any of this be tracked to a department?" or "Add the VAT line"' });
+  const send = h('button', { class: 'btn btn-sm btn-primary', type: 'button', disabled: !v.aiEnabled }, 'Ask');
+  send.onclick = () => {
+    if (!q.value.trim()) { q.focus(); return; }
+    send.disabled = true; send.textContent = 'Thinking…';
+    act(() => api('POST', `/close/${state.period}/ask`, { journalId: id === 'general' ? null : id, question: q.value }));
+  };
+  return h('div', { class: 'chat' },
+    thread.map((m) => h('div', { class: `msg msg-${m.role}` },
+      h('span', { class: 'msg-who' }, m.role === 'assistant' ? 'Assistant' : who(m.by), ' · ', when(m.at)),
+      h('div', { class: 'msg-text' }, m.text),
+      m.suggestion && j ? h('div', { class: 'suggest' },
+        h('p', {}, h('strong', {}, 'Suggested lines'), m.suggestion.why ? ` · ${m.suggestion.why}` : '', m.suggestion.balanced === false ? ' (these do not balance)' : ''),
+        lineTable({ ...j, lines: m.suggestion.lines.map((l) => ({ tracking: [], ...l })) }, sym),
+        can('review') ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => startEdit(j, m.suggestion.lines.map((l) => ({ tracking: [], ...l }))) }, 'Apply these lines (review before saving)') : null) : null)),
+    v.aiEnabled ? h('div', { class: 'chat-input' }, q, send)
+      : h('p', { class: 'comment' }, 'The assistant is off. Add an Emperia ANTHROPIC_API_KEY to the app settings to turn it on.'));
+}
+
 function journalsView() {
-  const js = state.view.journals || [];
-  const items = [h('p', { class: 'phase-note' }, 'Approving records the decision and who made it. Nothing is posted to Xero yet: posting approved journals comes in a later phase.')];
-  if (!js.length) items.push(h('div', { class: 'empty-state' }, h('h2', {}, 'No journals proposed'), h('p', {}, 'Everything with a register agrees to Xero for this month.')));
+  const v = state.view;
+  const js = v.journals || [];
+  const items = [h('p', { class: 'phase-note' }, 'Approving records the decision and who made it. Nothing is posted to Xero yet. Edit any journal, including tracking, before approving; edits are logged and need approving again.')];
+  items.push(h('details', { class: 'ask-close' }, h('summary', {}, 'Ask about this close'), chatPanel('general', null)));
+  if (!js.length) items.push(h('div', { class: 'empty-state' }, h('h2', {}, 'No journals this month'), h('p', {}, 'No releases are due and every schedule agrees to Xero.')));
   for (const j of js) {
     const sym = ENTITY[j.entityKey].sym;
-    const dr = j.lines.reduce((s, l) => s + l.debit, 0);
-    const cr = j.lines.reduce((s, l) => s + l.credit, 0);
     const dec = j.decision;
+    const editing = state.editing[j.id];
     const note = h('input', { class: 'field', type: 'text', placeholder: 'Note (required to reject)', 'aria-label': 'Decision note' });
-    items.push(h('article', { class: `journal ${dec ? dec.decision : ''}` },
+    const cls = `journal ${dec ? dec.decision : j.posted ? 'posted' : ''}`;
+    items.push(h('article', { class: cls },
       h('div', { class: 'journal-head' },
         h('h3', {}, j.narration),
+        j.posted ? h('span', { class: 'fb-status s-done' }, 'Already in Xero') : null,
+        j.edit ? h('span', { class: 'fb-status s-planned' }, `Edited by ${who(j.edit.by)}`) : null,
         h('span', { class: 'comment' }, `${j.entity}, dated ${j.date}`)),
-      h('p', { class: 'why' }, j.reason),
-      h('table', { class: 'mini' },
-        h('thead', {}, h('tr', {}, h('th', {}, 'Account'), h('th', {}, 'Description'), h('th', { class: 'num' }, 'Debit'), h('th', { class: 'num' }, 'Credit'))),
-        h('tbody', {}, j.lines.map((l) => h('tr', {}, h('td', {}, l.account), h('td', {}, l.description), h('td', { class: 'num' }, l.debit ? fmt(l.debit, sym) : ''), h('td', { class: 'num' }, l.credit ? fmt(l.credit, sym) : '')))),
-        h('tfoot', {}, h('tr', {}, h('td', { colspan: 2 }, 'Total'), h('td', { class: 'num' }, fmt(dr, sym)), h('td', { class: 'num' }, fmt(cr, sym))))),
-      dec
+      h('p', { class: 'why' }, j.reason, j.edit && j.edit.note ? ` Edit note: ${j.edit.note}` : ''),
+      editing ? editTable(j, sym) : lineTable(j, sym),
+      editing ? null : h('div', { class: 'journal-actions' },
+        can('review') ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => startEdit(j) }, 'Edit lines') : null,
+        j.edit && can('review') ? h('button', { class: 'linkish', type: 'button', onclick: () => act(() => api('POST', `/close/${state.period}/journals/${j.id}/edit`, { revert: true }), 'Back to the proposed lines.') }, 'Revert to proposed') : null),
+      j.posted ? null : dec
         ? h('div', { class: 'journal-actions' },
           h('span', { class: `decision ${dec.decision}` }, `${dec.decision === 'approved' ? 'Approved' : 'Rejected'} by ${who(dec.by)}, ${when(dec.at)}${dec.note ? `: ${dec.note}` : ''}`),
           can('approve') ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => act(() => api('POST', `/close/${state.period}/journals/${j.id}`, { decision: 'undo' }), 'Decision withdrawn.') }, 'Withdraw decision') : null)
-        : can('approve')
+        : (can('approve') && !editing)
           ? h('div', { class: 'journal-actions' }, note,
             h('button', { class: 'btn btn-sm btn-good', type: 'button', onclick: () => act(() => api('POST', `/close/${state.period}/journals/${j.id}`, { decision: 'approved', note: note.value }), 'Journal approved.') }, 'Approve'),
             h('button', { class: 'btn btn-sm btn-bad', type: 'button', onclick: () => act(() => api('POST', `/close/${state.period}/journals/${j.id}`, { decision: 'rejected', note: note.value }), 'Journal rejected.') }, 'Reject'))
-          : h('span', { class: 'comment' }, 'Waiting for an approver.')));
+          : (editing ? null : h('span', { class: 'comment' }, 'Waiting for an approver.')),
+      h('details', { class: 'ask', open: (j.chat || []).length > 0 }, h('summary', {}, (j.chat || []).length ? `Conversation (${j.chat.filter((m) => m.role === 'user').length})` : 'Ask about this journal'), chatPanel(j.id, j))));
   }
   return items;
 }
@@ -496,7 +632,7 @@ const regTitle = (r) => r.register.replace(/-/g, ' ').replace(/^eor/, 'EOR').rep
 const itemLabel = (it) => [it.supplier || it.customer || it.description, it.invoiceNumber].filter(Boolean).join(' · ');
 const shortCol = (m) => `${MON[Number(m.slice(5, 7)) - 1]} ${m.slice(2, 4)}`;
 
-function scheduleTable(key, s) {
+function releaseTable(key, s) {
   const sym = ENTITY[key].sym;
   const cur = state.period;
   const colCls = (m) => `num${m === cur ? ' cur' : ''}${m === s.openMonth ? ' bf' : ''}${m > cur ? ' fut' : ''}`;
@@ -521,7 +657,7 @@ function scheduleTable(key, s) {
           h('th', {}, 'Period'),
           s.months.map((m) => h('th', { class: colCls(m) }, m === s.openMonth ? `b/f ${shortCol(m)}` : shortCol(m))))),
         h('tbody', {}, items.length ? items.map((x) => h('tr', {},
-          h('td', { class: 'stick' }, itemLabel(x.item), x.item.expenseAccount || x.item.revenueAccount ? h('span', { class: 'status-word' }, x.item.expenseAccount || x.item.revenueAccount) : null),
+          h('td', { class: 'stick' }, itemLabel(x.item), x.item.expenseAccount || x.item.revenueAccount ? h('span', { class: 'status-word' }, x.item.expenseAccount || x.item.revenueAccount) : null, (x.item.tracking || []).length ? h('span', { class: 'status-word' }, trackText(x.item.tracking)) : null, itemControls(key, s, x.item)),
           h('td', { class: 'nowrap' }, x.item.start ? (x.item.start === x.item.end ? shortDate(x.item.start) : `${shortMonth(x.item.start)} – ${shortMonth(x.item.end)}`) : { static: 'Held' }[x.item.method] || ''),
           s.months.map((m) => h('td', { class: colCls(m) }, cell(x.cells[m], m))))) : h('tr', {}, h('td', { colspan: s.months.length + 2 }, 'Nothing on this schedule.'))),
         h('tfoot', {},
@@ -529,7 +665,123 @@ function scheduleTable(key, s) {
             h('td', { class: 'stick' }, label), h('td', {}),
             s.months.map((m) => h('td', { class: colCls(m) }, (m === s.openMonth && k !== 'closing') || (k !== 'closing' && k !== 'opening' && !s.totals[k][m]) ? '' : fmt(s.totals[k][m], sym))))),
           h('tr', {}, h('td', { class: 'stick' }, 'Per Xero'), h('td', {}), s.months.map((m) => h('td', { class: colCls(m) }, s.xero[m] !== undefined ? fmt(s.xero[m], sym) : '')))))),
-    s.notes.length ? h('ul', { class: 'notes' }, s.notes.map((n) => h('li', {}, n))) : null);
+    s.notes.length ? h('ul', { class: 'notes' }, s.notes.map((n) => h('li', {}, n))) : null,
+    scheduleControls(key, s));
+}
+
+
+function agreeText(diff, sym, cur) {
+  if (diff === null) return null;
+  return h('span', { class: Math.abs(diff) > 1 ? 'diff-bad' : 'signed' },
+    Math.abs(diff) <= 0.05 ? `Agrees to Xero at ${shortCol(cur)}` : Math.abs(diff) <= 1 ? `Agrees to Xero at ${shortCol(cur)}, ${fmt(diff, sym)} rounding` : `${fmt(diff, sym)} difference to Xero at ${shortCol(cur)}`);
+}
+
+// Held schedules: the month each amount relates to, and the balance on the right.
+function historicTable(key, s) {
+  const sym = ENTITY[key].sym;
+  const cur = state.period;
+  const xero = s.xero[cur];
+  const diff = xero !== undefined ? Math.round((xero - s.balance) * 100) / 100 : null;
+  const label = (x) => itemLabel(x.item) || x.item.description || '';
+  const hasBf = s.hasBf;
+  const cols = s.months;
+  return h('section', { class: 'sched', id: `sched-${key}-${s.register}` },
+    h('div', { class: 'sched-head' },
+      h('h2', { class: 'section-title' }, regTitle(s), regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
+      agreeText(diff, sym, cur)),
+    h('div', { class: 'sched-scroll' },
+      h('table', { class: 'mini sched-table' },
+        h('thead', {}, h('tr', {},
+          h('th', { class: 'stick' }, 'Item'),
+          hasBf ? h('th', { class: 'num bf' }, 'Brought forward') : null,
+          cols.map((m) => h('th', { class: `num${m === cur ? ' cur' : ''}` }, shortCol(m))),
+          h('th', { class: 'num total-col' }, `Balance ${shortCol(cur)}`))),
+        h('tbody', {}, s.items.length ? s.items.map((x) => h('tr', { class: x.item.closedPeriod ? 'closed' : '' },
+          h('td', { class: 'stick' }, label(x),
+            x.item.expenseAccount ? h('span', { class: 'status-word' }, x.item.expenseAccount) : null,
+            x.item.closedPeriod ? h('span', { class: 'status-word' }, `Cleared in ${shortCol(x.item.closedPeriod)}`) : null,
+            itemControls(key, s, x.item)),
+          hasBf ? h('td', { class: 'num bf' }, x.bf ? fmt(x.bf, sym) : '') : null,
+          cols.map((m) => h('td', { class: `num${m === cur ? ' cur' : ''}` }, x.cells[m] ? fmt(x.cells[m], sym) : '')),
+          h('td', { class: 'num total-col' }, fmt(x.balance, sym)))) : h('tr', {}, h('td', { colspan: cols.length + 3 }, 'Nothing on this schedule.'))),
+        h('tfoot', {},
+          h('tr', { class: 'closing' }, h('td', { class: 'stick' }, 'Total'),
+            hasBf ? h('td', { class: 'num bf' }, s.bfTotal ? fmt(s.bfTotal, sym) : '') : null,
+            cols.map((m) => h('td', { class: `num${m === cur ? ' cur' : ''}` }, s.totals[m] ? fmt(s.totals[m], sym) : '')),
+            h('td', { class: 'num total-col' }, fmt(s.balance, sym))),
+          h('tr', {}, h('td', { class: 'stick' }, 'Per Xero'), hasBf ? h('td', {}) : null, cols.map(() => h('td', {})), h('td', { class: 'num total-col' }, xero !== undefined ? fmt(xero, sym) : ''))))),
+    s.hiddenCount ? h('p', { class: 'comment' }, `${s.hiddenCount} cleared item(s) with no activity in the last 12 months are hidden.`) : null,
+    s.notes.length ? h('ul', { class: 'notes' }, s.notes.map((n) => h('li', {}, n))) : null,
+    scheduleControls(key, s));
+}
+
+// Per-item actions (held items): add an entry, clear the item.
+function itemControls(key, s, item) {
+  if (!can('input')) return null;
+  const base = `/close/${state.period}/registers/${key}/${s.register}/items/${encodeURIComponent(item.id)}`;
+  const open = state.itemOpen === `${key}|${s.register}|${item.id}`;
+  const toggleIt = () => { state.itemOpen = open ? null : `${key}|${s.register}|${item.id}`; render(); };
+  if (!open) return h('button', { class: 'linkish item-btn', type: 'button', onclick: toggleIt }, 'Change');
+  const amt = h('input', { class: 'field', type: 'text', inputmode: 'decimal', placeholder: 'Amount (negative to release)' });
+  const mon = h('input', { class: 'field', type: 'month', value: state.period });
+  const note = h('input', { class: 'field', type: 'text', placeholder: 'Note' });
+  return h('div', { class: 'item-panel' },
+    item.method === 'static' ? [h('div', { class: 'grid3' }, amt, mon, note),
+      h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: () => act(() => api('POST', `${base}/entry`, { amount: amt.value, period: mon.value, note: note.value }), 'Entry added.') }, 'Add entry')] : null,
+    item.closedPeriod
+      ? h('button', { class: 'btn btn-sm', type: 'button', onclick: () => act(() => api('POST', `${base}/close`, { undo: true }), 'Item reopened.') }, 'Reopen')
+      : h('button', { class: 'btn btn-sm', type: 'button', onclick: () => act(() => api('POST', `${base}/close`, { period: state.period }), `Cleared in ${monthName(state.period)}.`) }, `Clear in ${shortCol(state.period)}`),
+    h('button', { class: 'linkish', type: 'button', onclick: toggleIt }, 'Cancel'));
+}
+
+// Add a new item to a schedule.
+function scheduleControls(key, s) {
+  if (!can('input')) return null;
+  const id = `${key}|${s.register}`;
+  if (state.addOpen !== id) return h('button', { class: 'btn btn-sm add-item', type: 'button', onclick: () => { state.addOpen = id; ensureChart(key).then(render); render(); } }, `Add to ${regTitle(s).toLowerCase()}`);
+  const listId = `chart-${key}`;
+  const f = {};
+  const field = (k, attrs, label) => { f[k] = h('input', { class: 'field', id: `add-${k}`, ...attrs }); return h('label', { class: 'fld' }, h('span', {}, label), f[k]); };
+  const tc = cats(key);
+  const trackSel = tc.map((c) => { const sel = h('select', { class: 'field' }, h('option', { value: '' }, '—'), c.options.map((o) => h('option', { value: o }, o))); sel.dataset.cat = c.name; return h('label', { class: 'fld' }, h('span', {}, c.name), sel); });
+  const isRelease = s.view === 'release';
+  const accLabel = s.side === 'liability' && isRelease ? 'Revenue account' : (s.register === 'accruals' || isRelease ? 'Expense account' : 'Account (optional)');
+  const method = h('select', { class: 'field' }, h('option', { value: 'straight_line' }, 'Monthly over the period'), h('option', { value: 'on_end_date' }, 'All in the end month (events, trips)'));
+  const save = () => act(async () => {
+    const tracking = [...document.querySelectorAll('.add-form select[data-cat]')].filter((x) => x.value).map((x) => ({ name: x.dataset.cat, option: x.value }));
+    const body = { supplier: f.supplier.value, amount: f.amount.value, account: f.account.value, tracking };
+    if (isRelease) Object.assign(body, { invoiceNumber: f.invoice.value, invoiceDate: f.invdate.value, start: f.start.value, end: f.end.value, method: method.value, monthlyRelease: f.monthly.value });
+    else Object.assign(body, { period: f.month.value, note: f.note.value });
+    const v = await api('POST', `/close/${state.period}/registers/${key}/${s.register}/items`, body);
+    state.addOpen = null;
+    return v;
+  }, 'Added to the schedule.');
+  return h('div', { class: 'add-form action' },
+    h('datalist', { id: listId }, (state.charts[key] || []).map((a) => h('option', { value: a.name }))),
+    h('div', { class: 'grid3' },
+      field('supplier', { type: 'text', placeholder: 'e.g. Accountomate' }, 'Supplier / description'),
+      field('amount', { type: 'text', inputmode: 'decimal', placeholder: '0.00' }, `Amount (${ENTITY[key].ccy})`),
+      field('account', { type: 'text', list: listId, placeholder: 'Start typing' }, accLabel),
+      isRelease ? [field('invoice', { type: 'text' }, 'Invoice number'), field('invdate', { type: 'date' }, 'Invoice date'),
+        field('start', { type: 'date' }, 'Service start'), field('end', { type: 'date' }, 'Service end'),
+        h('label', { class: 'fld' }, h('span', {}, 'Release'), method), field('monthly', { type: 'text', inputmode: 'decimal', placeholder: 'Auto' }, 'Monthly release (optional)')]
+        : [field('month', { type: 'month', value: state.period }, 'Month it relates to'), field('note', { type: 'text' }, 'Note')],
+      trackSel),
+    h('div', { class: 'row-btns' },
+      h('button', { class: 'btn btn-sm btn-primary', type: 'button', onclick: save }, 'Add'),
+      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => { state.addOpen = null; render(); } }, 'Cancel')));
+}
+
+function scheduleTable(key, s) {
+  const live = (s.items || []).some((x) => (s.view === 'historic' ? x.show !== false : x.live));
+  const xero = s.xero[state.period];
+  if (!live && Math.abs(xero || 0) <= 0.005 && !(s.view === 'historic' && s.months.length)) {
+    return h('section', { class: 'sched sched-nil', id: `sched-${key}-${s.register}` },
+      h('div', { class: 'sched-head' }, h('h2', { class: 'section-title' }, regTitle(s), regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
+        h('span', { class: 'signed' }, `Nil, agrees to Xero at ${shortCol(state.period)}`)),
+      scheduleControls(key, s));
+  }
+  return s.view === 'historic' ? historicTable(key, s) : releaseTable(key, s);
 }
 
 function schedulesView() {
@@ -539,12 +791,8 @@ function schedulesView() {
   return [
     h('div', { class: 'seg-switch', role: 'group', 'aria-label': 'Entity' },
       ['ltd', 'inc'].map((k) => h('button', { type: 'button', class: `btn btn-sm${k === key ? ' on' : ''}`, 'aria-pressed': String(k === key), onclick: () => { state.schedEntity = k; render(); } }, ENTITY[k].label))),
-    h('p', { class: 'phase-note' }, `Movements by month, with balances underneath. ${monthName(state.period)} is highlighted and checked against Xero; later months are the forecast from the schedule. Schedules start from the balances brought forward at 30 Sep 2026.`),
-    sc.entities[key].filter((s) => s.items.some((x) => x.live) || Math.abs(s.xero[state.period] || 0) > 0.005).map((s) => scheduleTable(key, s)),
-    (() => {
-      const empty = sc.entities[key].filter((s) => !s.items.some((x) => x.live) && Math.abs(s.xero[state.period] || 0) <= 0.005);
-      return empty.length ? h('p', { class: 'comment' }, `Nothing on ${empty.map(regTitle).join(', ').toLowerCase()} this month (nil in Xero too).`) : null;
-    })(),
+    h('p', { class: 'phase-note' }, `Accruals, deposits, loans and tax show each amount in the month it relates to, with the balance on the right. Prepayments and income in advance show releases by month; months after ${monthName(state.period)} are the forecast. Use "Change" on an item to add an entry or clear it, and "Add to…" for new items.`),
+    sc.entities[key].map((s) => scheduleTable(key, s)),
   ];
 }
 

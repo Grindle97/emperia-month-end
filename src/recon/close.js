@@ -174,13 +174,25 @@ async function runClose({ period, entities = ['ltd', 'inc'], usdGbp, source, reg
         row.status = statusForDiff(row.difference);
         row.detail = { register: reg.register, lines: lines.map((l) => ({ ...l.item, balance: l.balance, releasedThisMonth: l.releasedThisMonth })), notes: reg.notes || [] };
         const released = round2(lines.reduce((s, l) => s + l.releasedThisMonth, 0));
-        if (row.status === STATUS.BREAK && released !== 0 && Math.abs(row.difference - released) <= ROUNDING) {
-          // Xero still holds this month's releases: propose them.
-          row.status = STATUS.JOURNAL;
-          row.comment = `This month's releases (${fmt(released)}) are not yet posted in Xero.`;
-          journals.push(releaseJournal(entity, reg, lines, period, end));
-        } else if (released !== 0) {
-          row.comment = `Includes ${fmt(released)} released this month.`;
+        const releaseType = reg.view === 'release' || (reg.items || []).some((i) => i.method !== 'static');
+        if (releaseType && released !== 0) {
+          // The month's releases always appear as a journal, so the close shows
+          // what was (or needs to be) posted. If Xero already reflects them the
+          // journal is marked posted and needs no decision.
+          const unposted = row.status === STATUS.BREAK && Math.abs(row.difference - released) <= ROUNDING;
+          const posted = Math.abs(row.difference) <= ROUNDING;
+          const j = releaseJournal(entity, reg, lines, period, end);
+          j.posted = posted && !unposted;
+          j.reason = j.posted
+            ? `${RELEASE_TITLE[reg.register] || reg.register} releases for ${monthWord(period)} (${fmt(released)}). Xero already agrees to the schedule after them, so they look posted.`
+            : `${RELEASE_TITLE[reg.register] || reg.register} releases for ${monthWord(period)} (${fmt(released)}) are not yet in Xero.`;
+          journals.push(j);
+          if (unposted) {
+            row.status = STATUS.JOURNAL;
+            row.comment = `This month's releases (${fmt(released)}) are not yet posted in Xero.`;
+          } else {
+            row.comment = `Includes ${fmt(released)} released this month${j.posted ? ', already in Xero' : ''}.`;
+          }
         }
         if (reg.notes && reg.notes.length) row.comment = [row.comment, ...reg.notes].filter(Boolean).join(' ');
       } else if (cfg.reviewNotes && Object.keys(cfg.reviewNotes).some((n) => norm(n) === norm(tb.name))) {
@@ -225,6 +237,9 @@ async function runClose({ period, entities = ['ltd', 'inc'], usdGbp, source, reg
   return results;
 }
 
+const RELEASE_TITLE = { prepayments: 'Prepayment', 'deferred-income': 'Income in advance', 'deferred-revenue': 'Deferred revenue' };
+const monthWord = (p) => `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(p.slice(5, 7)) - 1]} ${p.slice(0, 4)}`;
+
 function releaseJournal(entity, reg, lines, period, end) {
   const isAsset = reg.side === 'asset';
   const items = lines.filter((l) => l.releasedThisMonth !== 0);
@@ -235,17 +250,17 @@ function releaseJournal(entity, reg, lines, period, end) {
     const label = [l.item.supplier || l.item.customer || l.item.description, l.item.invoiceNumber].filter(Boolean).join(' ');
     // Prepayment release: Dr expense / Cr prepayments. Deferred revenue release: Dr deferred / Cr revenue.
     if (isAsset) {
-      jl.push({ account: other, debit: amt, credit: 0, description: `Release ${label}` });
+      jl.push({ account: other, debit: amt, credit: 0, description: `Release ${label}`, tracking: l.item.tracking || [] });
     } else {
-      jl.push({ account: other, debit: 0, credit: amt, description: `Release ${label}` });
+      jl.push({ account: other, debit: 0, credit: amt, description: `Release ${label}`, tracking: l.item.tracking || [] });
     }
   }
   const totalRel = round2(items.reduce((s, l) => s + l.releasedThisMonth, 0));
   jl.push(isAsset
-    ? { account: reg.account, debit: 0, credit: totalRel, description: `${reg.register} releases ${period}` }
-    : { account: reg.account, debit: totalRel, credit: 0, description: `${reg.register} releases ${period}` });
+    ? { account: reg.account, debit: 0, credit: totalRel, description: `${RELEASE_TITLE[reg.register] || reg.register} releases, ${monthWord(period)}`, tracking: [] }
+    : { account: reg.account, debit: totalRel, credit: 0, description: `${RELEASE_TITLE[reg.register] || reg.register} releases, ${monthWord(period)}`, tracking: [] });
   return {
-    entity: entity.label, date: end, narration: `${reg.register} releases for ${period}`,
+    entity: entity.label, date: end, narration: `${RELEASE_TITLE[reg.register] || reg.register.replace(/-/g, ' ')} releases, ${monthWord(period)}`,
     reason: `Register ${reg.register}: monthly releases not yet in Xero.`, lines: jl,
   };
 }
@@ -312,6 +327,7 @@ function xeroSource() {
     getAccounts: data.getAccounts,
     getTrialBalanceReport: data.getTrialBalanceReport,
     getUnreconciledBankTransactions: data.getUnreconciledBankTransactions,
+    getTrackingCategories: data.getTrackingCategories,
     async getAgedDocuments(key, docType, end) {
       const invoices = await data.getInvoicesUpTo(key, docType, end);
       const credits = [];

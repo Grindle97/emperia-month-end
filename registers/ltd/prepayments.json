@@ -130,5 +130,7 @@
       "openingBalance": 300.0
     }
   ],
-  "openingTotal": 10955.5
+  "openingTotal": 10955.5,
+  "version": 2,
+  "view": "release"
 }
