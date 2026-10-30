@@ -126,3 +126,28 @@ test('Bank statements: upload is stored and can be opened; assistant off without
   const ask = await call('POST', '/close/2026-10/ask', { question: 'Anything to check?' });
   assert.equal(ask.status, 503);
 });
+
+test('Comments: pinned to a place, replies reopen, export reads as a brief', async () => {
+  const anchor = { key: 'item:ltd:accruals:accountomate', label: 'Schedules › Emperia Ltd › Accruals › Accountomate', col: 'May 26', tab: 'schedules', entity: 'ltd' };
+  const c = await call('POST', '/feedback', { kind: 'problem', text: 'Should be split by department', anchor, period: '2026-10' });
+  assert.equal(c.status, 200);
+  const rec = c.json.feedback.find((f) => f.id === c.json.id);
+  assert.deepEqual(rec.anchor, anchor);
+  assert.equal(rec.period, '2026-10');
+
+  const done = await call('POST', `/feedback/${c.json.id}`, { status: 'done' });
+  assert.equal(done.json.feedback.find((f) => f.id === c.json.id).status, 'done');
+  const reply = await call('POST', '/feedback', { parent: c.json.id, text: 'Still wrong in November' });
+  assert.equal(reply.status, 200);
+  assert.equal(reply.json.feedback.find((f) => f.id === c.json.id).status, 'new', 'a reply reopens it');
+
+  const badParent = await call('POST', '/feedback', { parent: 'nope', text: 'x' });
+  assert.equal(badParent.status, 400);
+
+  const res = await fetch(`${BASE}/feedback/export`);
+  const md = await res.text();
+  assert.match(res.headers.get('content-type'), /markdown/);
+  assert.match(md, /Something wrong: Schedules › Emperia Ltd › Accruals › Accountomate › May 26/);
+  assert.match(md, /Month: October 2026/);
+  assert.match(md, /Reply from tester@emperiavr\.com .*Still wrong in November/);
+});

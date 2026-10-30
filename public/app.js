@@ -155,7 +155,7 @@ function renderTabs() {
     ['schedules', 'Schedules', null],
     ['journals', 'Journals', v && v.journals ? v.journals.filter((j) => !j.decision).length : null],
     ['activity', 'Activity', null],
-    ['feedback', 'Feedback', state.feedback ? state.feedback.filter((f) => f.status === 'new').length : null],
+    ['feedback', 'Comments', state.feedback ? openThreads().length : null],
   ];
   document.getElementById('tabs').replaceChildren(...tabs.map(([key, label, n]) => h('button', {
     class: 'tab', role: 'tab', type: 'button', 'aria-selected': String(state.tab === key),
@@ -191,9 +191,9 @@ function strip(key, e) {
         onclick: () => act(() => api('POST', `/close/${state.period}/signoff`, { entity: key }), `${ENTITY[key].label} signed off.`),
       }, `Sign off ${ENTITY[key].label}`) : null);
   }
-  return h('section', { class: 'strip', 'aria-label': 'Close progress' },
+  return h('section', { class: 'strip', 'aria-label': 'Close progress', ...cmt(`strip:${key}`, `${ENTITY[key].label} › Close progress`, key, key) },
     h('div', { class: 'strip-head' },
-      h('h1', { class: 'strip-title' }, `${ENTITY[key].label}, ${monthName(state.period)}`),
+      h('h1', { class: 'strip-title pin-slot' }, `${ENTITY[key].label}, ${monthName(state.period)}`),
       h('span', { class: 'strip-sum' }, e.blockers.length ? `${settled} of ${total} accounts settled, ${e.blockers.length} open` : `All ${total} accounts settled`),
       signBlock),
     meter,
@@ -215,8 +215,8 @@ function icPanel() {
   const ic = state.view.intercompany;
   if (!ic) return null;
   const rateInput = h('input', { class: 'field', type: 'text', inputmode: 'decimal', value: ic.rate || '', 'aria-label': 'USD/GBP rate at month end' });
-  return h('section', { 'aria-label': 'Intercompany' },
-    h('h2', { class: 'section-title' }, 'Intercompany'),
+  return h('section', { 'aria-label': 'Intercompany', ...cmt('ic', 'Emperia Ltd › Intercompany', 'ltd', 'ltd') },
+    h('h2', { class: 'section-title pin-slot' }, 'Intercompany'),
     h('div', { class: 'ic' },
       h('div', {}, h('dl', {}, h('dt', {}, 'Inc owes Ltd'), h('dd', {}, fmt(ic.incUsd, '$')))),
       h('div', {}, h('dl', {}, h('dt', {}, 'Rate at month end (GBP per USD)'),
@@ -245,19 +245,20 @@ function entityView(key) {
       const m = MARKS[st] || MARKS.Review;
       const open = state.open.has(id);
       const diffBad = r.difference !== null && Math.abs(r.difference) > 1 && !['Explained', 'Reviewed'].includes(st);
+      const anchor = cmt(`acct:${key}:${r.account}`, `${ENTITY[key].label} › ${r.account}`, key, key);
       body.push(h('tr', {
-        class: 'row', tabindex: '0', 'aria-expanded': String(open),
+        class: 'row', tabindex: '0', 'aria-expanded': String(open), ...anchor,
         onclick: () => toggle(id),
         onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(id); } },
       },
       h('td', { class: 'mark-col' }, h('span', { class: `mark m-${m.cls}`, title: m.word }, m.mark)),
-      h('td', {}, h('span', { class: 'acct' }, r.account), r.code ? h('span', { class: 'acct-code' }, r.code) : null, h('span', { class: 'status-word' }, m.word)),
-      h('td', { class: 'num' }, fmt(r.xero, sym)),
-      h('td', { class: 'num' }, r.supporting !== null ? fmt(r.supporting, sym) : ''),
-      h('td', { class: `num ${diffBad ? 'diff-bad' : 'diff-ok'}` }, r.difference !== null ? fmt(r.difference, sym) : ''),
-      h('td', { class: 'num hide-sm' }, r.movement ? fmt(r.movement, sym) : '–'),
-      h('td', { class: 'comment hide-sm' }, r.comment, r.reviewed ? h('span', { class: 'who-ticked' }, `Ticked by ${who(r.reviewed.by)}${r.reviewed.note ? `: ${r.reviewed.note}` : ''}`) : null)));
-      if (open) body.push(h('tr', { class: 'detail' }, h('td', { colspan: 7 }, detail(key, r, sym))));
+      h('td', { 'data-col': 'Account' }, h('span', { class: 'acct pin-slot' }, r.account), r.code ? h('span', { class: 'acct-code' }, r.code) : null, h('span', { class: 'status-word' }, m.word)),
+      h('td', { class: 'num', 'data-col': 'Xero balance' }, fmt(r.xero, sym)),
+      h('td', { class: 'num', 'data-col': 'Supporting' }, r.supporting !== null ? fmt(r.supporting, sym) : ''),
+      h('td', { class: `num ${diffBad ? 'diff-bad' : 'diff-ok'}`, 'data-col': 'Difference' }, r.difference !== null ? fmt(r.difference, sym) : ''),
+      h('td', { class: 'num hide-sm', 'data-col': 'Moved in month' }, r.movement ? fmt(r.movement, sym) : '–'),
+      h('td', { class: 'comment hide-sm', 'data-col': 'Comment' }, r.comment, r.reviewed ? h('span', { class: 'who-ticked' }, `Ticked by ${who(r.reviewed.by)}${r.reviewed.note ? `: ${r.reviewed.note}` : ''}`) : null)));
+      if (open) body.push(h('tr', { class: 'detail', ...anchor, 'data-cmt-nopin': true }, h('td', { colspan: 7, 'data-col': 'Detail panel' }, detail(key, r, sym))));
     }
     if (sec.rows.length > 1 && group.sections.length > 1) body.push(h('tr', { class: 'subtotal' }, h('td', {}), h('td', {}, `Total ${sec.label.toLowerCase()}`), h('td', { class: 'num' }, fmt(sec.total, sym)), h('td', { colspan: 4 })));
     }
@@ -451,7 +452,7 @@ function lineTable(j, sym) {
   const cr = j.lines.reduce((s, l) => s + l.credit, 0);
   return h('table', { class: 'mini' },
     h('thead', {}, h('tr', {}, h('th', {}, 'Account'), h('th', {}, 'Description'), tc.map((c) => h('th', {}, c.name)), h('th', { class: 'num' }, 'Debit'), h('th', { class: 'num' }, 'Credit'))),
-    h('tbody', {}, j.lines.map((l) => h('tr', {}, h('td', {}, l.account), h('td', {}, l.description),
+    h('tbody', {}, j.lines.map((l, i) => h('tr', { 'data-col': `Line ${i + 1} (${l.account})` }, h('td', {}, l.account), h('td', {}, l.description),
       tc.map((c) => h('td', {}, ((l.tracking || []).find((t) => t.name === c.name) || {}).option || '')),
       h('td', { class: 'num' }, l.debit ? fmt(l.debit, sym) : ''), h('td', { class: 'num' }, l.credit ? fmt(l.credit, sym) : '')))),
     h('tfoot', {}, h('tr', {}, h('td', { colspan: 2 + tc.length }, 'Total'), h('td', { class: 'num' }, fmt(dr, sym)), h('td', { class: 'num' }, fmt(cr, sym)))));
@@ -528,7 +529,7 @@ function journalsView() {
   const v = state.view;
   const js = v.journals || [];
   const items = [h('p', { class: 'phase-note' }, 'Approving records the decision and who made it. Nothing is posted to Xero yet. Edit any journal, including tracking, before approving; edits are logged and need approving again.')];
-  items.push(h('details', { class: 'ask-close' }, h('summary', {}, 'Ask about this close'), chatPanel('general', null)));
+  items.push(h('details', { class: 'ask-close', ...cmt('journals:ask', 'Journals › Ask about this close', 'journals') }, h('summary', {}, 'Ask about this close'), chatPanel('general', null)));
   if (!js.length) items.push(h('div', { class: 'empty-state' }, h('h2', {}, 'No journals this month'), h('p', {}, 'No releases are due and every schedule agrees to Xero.')));
   for (const j of js) {
     const sym = ENTITY[j.entityKey].sym;
@@ -536,9 +537,9 @@ function journalsView() {
     const editing = state.editing[j.id];
     const note = h('input', { class: 'field', type: 'text', placeholder: 'Note (required to reject)', 'aria-label': 'Decision note' });
     const cls = `journal ${dec ? dec.decision : j.posted ? 'posted' : ''}`;
-    items.push(h('article', { class: cls },
+    items.push(h('article', { class: cls, ...cmt(`journal:${j.id}`, `Journals › ${j.entity} › ${j.narration}`, 'journals', j.entityKey) },
       h('div', { class: 'journal-head' },
-        h('h3', {}, j.narration),
+        h('h3', { class: 'pin-slot' }, j.narration),
         j.posted ? h('span', { class: 'fb-status s-done' }, 'Already in Xero') : null,
         j.edit ? h('span', { class: 'fb-status s-planned' }, `Edited by ${who(j.edit.by)}`) : null,
         h('span', { class: 'comment' }, `${j.entity}, dated ${j.date}`)),
@@ -604,6 +605,7 @@ function render() {
   else if (state.tab === 'feedback') content = feedbackView();
   else content = entityView(state.tab);
   main.replaceChildren(...[content].flat(Infinity).filter(Boolean));
+  decoratePins();
   if (v && v.run && v.run.demo && !document.querySelector('.demo-flag')) {
     document.querySelector('.tabs').before(h('div', { class: 'demo-flag' }, 'Demo mode: September 2026 balances from the reconciliation workbooks, not live Xero.'));
   }
@@ -631,6 +633,8 @@ function openSchedule(key, register) {
 const regTitle = (r) => r.register.replace(/-/g, ' ').replace(/^eor/, 'EOR').replace(/^./, (c) => c.toUpperCase());
 const itemLabel = (it) => [it.supplier || it.customer || it.description, it.invoiceNumber].filter(Boolean).join(' · ');
 const shortCol = (m) => `${MON[Number(m.slice(5, 7)) - 1]} ${m.slice(2, 4)}`;
+const schedAnchor = (key, s) => cmt(`sched:${key}:${s.register}`, `Schedules › ${ENTITY[key].label} › ${regTitle(s)}`, 'schedules', key);
+const itemAnchor = (key, s, item) => cmt(`item:${key}:${s.register}:${item.id}`, `Schedules › ${ENTITY[key].label} › ${regTitle(s)} › ${itemLabel(item) || item.description || item.id}`, 'schedules', key);
 
 function releaseTable(key, s) {
   const sym = ENTITY[key].sym;
@@ -645,9 +649,9 @@ function releaseTable(key, s) {
   const xero = s.xero[cur];
   const closing = s.totals.closing[cur];
   const diff = xero !== undefined && closing !== undefined ? Math.round((xero - closing) * 100) / 100 : null;
-  return h('section', { class: 'sched', id: `sched-${key}-${s.register}` },
+  return h('section', { class: 'sched', id: `sched-${key}-${s.register}`, ...schedAnchor(key, s) },
     h('div', { class: 'sched-head' },
-      h('h2', { class: 'section-title' }, `${regTitle(s)}`, regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
+      h('h2', { class: 'section-title pin-slot' }, `${regTitle(s)}`, regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
       xero !== undefined ? h('span', { class: Math.abs(diff) > 1 ? 'diff-bad' : 'signed' },
         Math.abs(diff) <= 0.05 ? `Agrees to Xero at ${shortCol(cur)}` : Math.abs(diff) <= 1 ? `Agrees to Xero at ${shortCol(cur)}, ${fmt(diff, sym)} rounding` : `${fmt(diff, sym)} difference to Xero at ${shortCol(cur)}`) : null),
     h('div', { class: 'sched-scroll' },
@@ -655,15 +659,15 @@ function releaseTable(key, s) {
         h('thead', {}, h('tr', {},
           h('th', { class: 'stick' }, 'Item'),
           h('th', {}, 'Period'),
-          s.months.map((m) => h('th', { class: colCls(m) }, m === s.openMonth ? `b/f ${shortCol(m)}` : shortCol(m))))),
-        h('tbody', {}, items.length ? items.map((x) => h('tr', {},
-          h('td', { class: 'stick' }, itemLabel(x.item), x.item.expenseAccount || x.item.revenueAccount ? h('span', { class: 'status-word' }, x.item.expenseAccount || x.item.revenueAccount) : null, (x.item.tracking || []).length ? h('span', { class: 'status-word' }, trackText(x.item.tracking)) : null, itemControls(key, s, x.item)),
+          s.months.map((m) => h('th', { class: colCls(m), 'data-col': shortCol(m) }, m === s.openMonth ? `b/f ${shortCol(m)}` : shortCol(m))))),
+        h('tbody', {}, items.length ? items.map((x) => h('tr', itemAnchor(key, s, x.item),
+          h('td', { class: 'stick' }, h('span', { class: 'pin-slot' }, itemLabel(x.item)), x.item.expenseAccount || x.item.revenueAccount ? h('span', { class: 'status-word' }, x.item.expenseAccount || x.item.revenueAccount) : null, (x.item.tracking || []).length ? h('span', { class: 'status-word' }, trackText(x.item.tracking)) : null, itemControls(key, s, x.item)),
           h('td', { class: 'nowrap' }, x.item.start ? (x.item.start === x.item.end ? shortDate(x.item.start) : `${shortMonth(x.item.start)} – ${shortMonth(x.item.end)}`) : { static: 'Held' }[x.item.method] || ''),
-          s.months.map((m) => h('td', { class: colCls(m) }, cell(x.cells[m], m))))) : h('tr', {}, h('td', { colspan: s.months.length + 2 }, 'Nothing on this schedule.'))),
+          s.months.map((m) => h('td', { class: colCls(m), 'data-col': shortCol(m) }, cell(x.cells[m], m))))) : h('tr', {}, h('td', { colspan: s.months.length + 2 }, 'Nothing on this schedule.'))),
         h('tfoot', {},
           [['Opening', 'opening'], ['Added', 'additions'], ['Released', 'releases'], ['Closing', 'closing']].map(([label, k]) => h('tr', { class: k === 'closing' ? 'closing' : '' },
             h('td', { class: 'stick' }, label), h('td', {}),
-            s.months.map((m) => h('td', { class: colCls(m) }, (m === s.openMonth && k !== 'closing') || (k !== 'closing' && k !== 'opening' && !s.totals[k][m]) ? '' : fmt(s.totals[k][m], sym))))),
+            s.months.map((m) => h('td', { class: colCls(m), 'data-col': `${label} ${shortCol(m)}` }, (m === s.openMonth && k !== 'closing') || (k !== 'closing' && k !== 'opening' && !s.totals[k][m]) ? '' : fmt(s.totals[k][m], sym))))),
           h('tr', {}, h('td', { class: 'stick' }, 'Per Xero'), h('td', {}), s.months.map((m) => h('td', { class: colCls(m) }, s.xero[m] !== undefined ? fmt(s.xero[m], sym) : '')))))),
     s.notes.length ? h('ul', { class: 'notes' }, s.notes.map((n) => h('li', {}, n))) : null,
     scheduleControls(key, s));
@@ -685,29 +689,29 @@ function historicTable(key, s) {
   const label = (x) => itemLabel(x.item) || x.item.description || '';
   const hasBf = s.hasBf;
   const cols = s.months;
-  return h('section', { class: 'sched', id: `sched-${key}-${s.register}` },
+  return h('section', { class: 'sched', id: `sched-${key}-${s.register}`, ...schedAnchor(key, s) },
     h('div', { class: 'sched-head' },
-      h('h2', { class: 'section-title' }, regTitle(s), regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
+      h('h2', { class: 'section-title pin-slot' }, regTitle(s), regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
       agreeText(diff, sym, cur)),
     h('div', { class: 'sched-scroll' },
       h('table', { class: 'mini sched-table' },
         h('thead', {}, h('tr', {},
           h('th', { class: 'stick' }, 'Item'),
           hasBf ? h('th', { class: 'num bf' }, 'Brought forward') : null,
-          cols.map((m) => h('th', { class: `num${m === cur ? ' cur' : ''}` }, shortCol(m))),
+          cols.map((m) => h('th', { class: `num${m === cur ? ' cur' : ''}`, 'data-col': shortCol(m) }, shortCol(m))),
           h('th', { class: 'num total-col' }, `Balance ${shortCol(cur)}`))),
-        h('tbody', {}, s.items.length ? s.items.map((x) => h('tr', { class: x.item.closedPeriod ? 'closed' : '' },
-          h('td', { class: 'stick' }, label(x),
+        h('tbody', {}, s.items.length ? s.items.map((x) => h('tr', { class: x.item.closedPeriod ? 'closed' : '', ...itemAnchor(key, s, x.item) },
+          h('td', { class: 'stick' }, h('span', { class: 'pin-slot' }, label(x)),
             x.item.expenseAccount ? h('span', { class: 'status-word' }, x.item.expenseAccount) : null,
             x.item.closedPeriod ? h('span', { class: 'status-word' }, `Cleared in ${shortCol(x.item.closedPeriod)}`) : null,
             itemControls(key, s, x.item)),
-          hasBf ? h('td', { class: 'num bf' }, x.bf ? fmt(x.bf, sym) : '') : null,
-          cols.map((m) => h('td', { class: `num${m === cur ? ' cur' : ''}` }, x.cells[m] ? fmt(x.cells[m], sym) : '')),
-          h('td', { class: 'num total-col' }, fmt(x.balance, sym)))) : h('tr', {}, h('td', { colspan: cols.length + 3 }, 'Nothing on this schedule.'))),
+          hasBf ? h('td', { class: 'num bf', 'data-col': 'Brought forward' }, x.bf ? fmt(x.bf, sym) : '') : null,
+          cols.map((m) => h('td', { class: `num${m === cur ? ' cur' : ''}`, 'data-col': shortCol(m) }, x.cells[m] ? fmt(x.cells[m], sym) : '')),
+          h('td', { class: 'num total-col', 'data-col': `Balance ${shortCol(cur)}` }, fmt(x.balance, sym)))) : h('tr', {}, h('td', { colspan: cols.length + 3 }, 'Nothing on this schedule.'))),
         h('tfoot', {},
           h('tr', { class: 'closing' }, h('td', { class: 'stick' }, 'Total'),
             hasBf ? h('td', { class: 'num bf' }, s.bfTotal ? fmt(s.bfTotal, sym) : '') : null,
-            cols.map((m) => h('td', { class: `num${m === cur ? ' cur' : ''}` }, s.totals[m] ? fmt(s.totals[m], sym) : '')),
+            cols.map((m) => h('td', { class: `num${m === cur ? ' cur' : ''}`, 'data-col': `Total ${shortCol(m)}` }, s.totals[m] ? fmt(s.totals[m], sym) : '')),
             h('td', { class: 'num total-col' }, fmt(s.balance, sym))),
           h('tr', {}, h('td', { class: 'stick' }, 'Per Xero'), hasBf ? h('td', {}) : null, cols.map(() => h('td', {})), h('td', { class: 'num total-col' }, xero !== undefined ? fmt(xero, sym) : ''))))),
     s.hiddenCount ? h('p', { class: 'comment' }, `${s.hiddenCount} cleared item(s) with no activity in the last 12 months are hidden.`) : null,
@@ -776,8 +780,8 @@ function scheduleTable(key, s) {
   const live = (s.items || []).some((x) => (s.view === 'historic' ? x.show !== false : x.live));
   const xero = s.xero[state.period];
   if (!live && Math.abs(xero || 0) <= 0.005 && !(s.view === 'historic' && s.months.length)) {
-    return h('section', { class: 'sched sched-nil', id: `sched-${key}-${s.register}` },
-      h('div', { class: 'sched-head' }, h('h2', { class: 'section-title' }, regTitle(s), regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
+    return h('section', { class: 'sched sched-nil', id: `sched-${key}-${s.register}`, ...schedAnchor(key, s) },
+      h('div', { class: 'sched-head' }, h('h2', { class: 'section-title pin-slot' }, regTitle(s), regTitle(s).toLowerCase() !== s.account.toLowerCase() ? h('span', { class: 'acct-code' }, s.account) : null),
         h('span', { class: 'signed' }, `Nil, agrees to Xero at ${shortCol(state.period)}`)),
       scheduleControls(key, s));
   }
@@ -796,60 +800,226 @@ function schedulesView() {
   ];
 }
 
-// ---------- feedback
+// ---------- comments
+// Anything on the page can carry an anchor (data-cmt). In comment mode a click
+// on it opens a comment thread for that exact place; cells carry data-col so a
+// comment can name the month or column too. Open comments show as pins.
+const TAB_NAME = { ltd: ENTITY.ltd.label, inc: ENTITY.inc.label, schedules: 'Schedules', journals: 'Journals', activity: 'Activity', feedback: 'Comments' };
+const FB_KIND = { idea: 'Idea', problem: 'Something wrong', question: 'Question' };
+const OPEN_STATUS = new Set(['new', 'planned']);
+
+/** Attributes that make an element commentable. */
+function cmt(key, label, tab = state.tab, entity = null, extra = {}) {
+  return { 'data-cmt': key, 'data-cmt-label': label, 'data-cmt-tab': tab, 'data-cmt-entity': entity, ...extra };
+}
+
+function threadsOf(all) {
+  const replies = new Map();
+  for (const f of all || []) {
+    if (!f.parent) continue;
+    if (!replies.has(f.parent)) replies.set(f.parent, []);
+    replies.get(f.parent).push(f);
+  }
+  return (all || []).filter((f) => !f.parent).map((f) => ({ ...f, replies: (replies.get(f.id) || []).sort((a, b) => a.at.localeCompare(b.at)) }));
+}
+const openThreads = () => threadsOf(state.feedback).filter((t) => OPEN_STATUS.has(t.status));
+const whereText = (t) => (t.anchor ? [t.anchor.label, t.anchor.col].filter(Boolean).join(' › ') : 'General');
+
 async function loadFeedback() {
   try { state.feedback = (await api('GET', '/feedback')).feedback; render(); } catch (err) { toast(err.message, true); }
 }
+
+function anchorFrom(target) {
+  const el = target.closest('[data-cmt]');
+  const colEl = target.closest('[data-col]');
+  const col = colEl && el && el.contains(colEl) ? colEl.dataset.col : null;
+  if (!el) return { key: `page:${state.tab}`, label: `${TAB_NAME[state.tab] || state.tab} page`, tab: state.tab, entity: null, col: null };
+  return { key: el.dataset.cmt, label: el.dataset.cmtLabel, tab: el.dataset.cmtTab || state.tab, entity: el.dataset.cmtEntity || null, col };
+}
+
+function setCommenting(on) {
+  state.commenting = on;
+  document.body.classList.toggle('commenting', on);
+  const b = document.getElementById('comment-toggle');
+  b.setAttribute('aria-pressed', String(on));
+  b.textContent = on ? 'Done commenting' : 'Comment';
+  document.getElementById('cmt-banner').hidden = !on;
+  if (!on) document.querySelectorAll('.cmt-hover').forEach((x) => x.classList.remove('cmt-hover'));
+}
+
+// Clicks in comment mode open a thread instead of doing the normal thing.
+// The header, tabs and dialogs keep working so you can move around.
+function commentClick(ev) {
+  if (!state.commenting) return;
+  if (ev.target.closest('.bar, .tabs, dialog, #cmt-banner, .cmt-pin')) return;
+  if (!ev.target.closest('#main')) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  openThread(anchorFrom(ev.target));
+}
+function commentHover(ev) {
+  if (!state.commenting) return;
+  const el = ev.target.closest('#main [data-cmt]');
+  document.querySelectorAll('.cmt-hover').forEach((x) => { if (x !== el) x.classList.remove('cmt-hover'); });
+  if (el) el.classList.add('cmt-hover');
+}
+
+// Pins: a count of open comments on each anchored element.
+function decoratePins() {
+  const byKey = new Map();
+  for (const t of openThreads()) {
+    if (!t.anchor) continue;
+    byKey.set(t.anchor.key, (byKey.get(t.anchor.key) || 0) + 1);
+  }
+  for (const el of document.querySelectorAll('#main [data-cmt]')) {
+    if (el.hasAttribute('data-cmt-nopin')) continue;
+    const n = byKey.get(el.dataset.cmt);
+    if (!n) continue;
+    const slot = [...el.querySelectorAll('.pin-slot')].find((s) => s.closest('[data-cmt]') === el) || el;
+    if (slot.querySelector(':scope > .cmt-pin')) continue;
+    slot.append(h('button', {
+      class: 'cmt-pin', type: 'button', title: `${n} open comment${n > 1 ? 's' : ''}`, 'aria-label': `${n} open comment${n > 1 ? 's' : ''} here`,
+      onclick: (ev) => { ev.stopPropagation(); ev.preventDefault(); openThread(anchorFrom(el)); },
+    }, String(n)));
+  }
+}
+
+function statusButtons(t, after) {
+  if (!can('admin')) return null;
+  const opts = OPEN_STATUS.has(t.status) ? ['planned', 'done', 'declined'] : ['new'];
+  return h('div', { class: 'row-btns' }, opts.filter((s) => s !== t.status).map((s) => h('button', {
+    class: 'btn btn-sm', type: 'button',
+    onclick: async () => {
+      const reply = s === 'declined' ? (prompt('Short reason (optional)') || '') : '';
+      try { state.feedback = (await api('POST', `/feedback/${t.id}`, { status: s, reply })).feedback; render(); if (after) after(); } catch (err) { toast(err.message, true); }
+    },
+  }, { planned: 'Mark planned', done: 'Mark resolved', declined: 'Decline', new: 'Reopen' }[s])));
+}
+
+function threadCard(t, { after, showWhere = false, goto = false } = {}) {
+  const r = h('textarea', { class: 'field', rows: '2', placeholder: 'Reply' });
+  const send = h('button', { class: 'btn btn-sm', type: 'button' }, 'Reply');
+  send.onclick = async () => {
+    if (!r.value.trim()) { r.focus(); return; }
+    send.disabled = true;
+    try { state.feedback = (await api('POST', '/feedback', { parent: t.id, text: r.value })).feedback; render(); if (after) after(); } catch (err) { toast(err.message, true); send.disabled = false; }
+  };
+  return h('article', { class: `thread${OPEN_STATUS.has(t.status) ? '' : ' resolved'}` },
+    h('div', { class: 'thread-head' },
+      h('strong', {}, who(t.by)), h('span', { class: 'comment' }, `${FB_KIND[t.kind] || 'Comment'} · ${when(t.at)}${t.period ? ` · ${monthName(t.period)}` : ''}`),
+      h('span', { class: `fb-status s-${t.status}` }, t.status === 'new' ? 'open' : t.status)),
+    showWhere ? h('p', { class: 'thread-where' }, whereText(t), goto && t.anchor && !t.anchor.key.startsWith('page:') ? h('button', { class: 'linkish', type: 'button', onclick: () => goTo(t) }, 'Go to it') : null)
+      : (t.anchor && t.anchor.col ? h('p', { class: 'thread-where' }, t.anchor.col) : null),
+    h('p', { class: 'fb-text' }, t.text),
+    t.replies.map((x) => h('div', { class: 'reply' }, h('strong', {}, who(x.by)), h('span', { class: 'comment' }, ` · ${when(x.at)}`), h('p', {}, x.text))),
+    t.reply ? h('p', { class: 'comment' }, `Note: ${t.reply}`) : null,
+    h('div', { class: 'reply-box' }, r, send),
+    statusButtons(t, after));
+}
+
+/** The thread dialog for one place on the page (or a general comment). */
+function openThread(anchor) {
+  const dlg = document.getElementById('feedback-dialog');
+  const draw = () => {
+    const here = anchor ? threadsOf(state.feedback).filter((t) => t.anchor && t.anchor.key === anchor.key) : [];
+    const open = here.filter((t) => OPEN_STATUS.has(t.status));
+    const closed = here.filter((t) => !OPEN_STATUS.has(t.status));
+    const kind = h('select', { id: 'fb-kind', class: 'field' }, h('option', { value: 'idea' }, 'Idea or improvement'), h('option', { value: 'problem' }, 'Something looks wrong'), h('option', { value: 'question' }, 'Question'));
+    const ta = h('textarea', { id: 'fb-text', class: 'field', rows: '4', placeholder: anchor ? 'What should change here? e.g. "this should tie to the payroll report", "show the invoice number", "wrong account"' : 'What would make the dashboard better?' });
+    const send = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Post comment');
+    const form = h('form', { class: 'fb-form', onsubmit: async (ev) => {
+      ev.preventDefault();
+      if (!ta.value.trim()) { ta.focus(); return; }
+      send.disabled = true;
+      try {
+        const res = await api('POST', '/feedback', { kind: kind.value, text: ta.value, anchor, period: state.period, context: contextNow() });
+        state.feedback = res.feedback;
+        toast('Comment posted.');
+        render();
+        dlg.close();
+      } catch (err) { toast(err.message, true); send.disabled = false; }
+    } },
+    h('label', { for: 'fb-kind' }, 'Type'), kind,
+    h('label', { for: 'fb-text' }, here.length ? 'New comment' : 'Comment'), ta,
+    h('div', { class: 'row-btns' }, send, h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'Close')));
+    dlg.replaceChildren(
+      h('div', { class: 'thread-dialog' },
+        h('h2', {}, anchor ? 'Comment' : 'General comment'),
+        h('p', { class: 'thread-where' }, anchor ? [anchor.label, anchor.col].filter(Boolean).join(' › ') : `${monthName(state.period)} · anything about the dashboard`),
+        open.map((t) => threadCard(t, { after: draw })),
+        closed.length ? h('details', {}, h('summary', {}, `${closed.length} resolved`), closed.map((t) => threadCard(t, { after: draw }))) : null,
+        form));
+    if (!here.length) ta.focus();
+  };
+  draw();
+  if (!dlg.open) dlg.showModal();
+}
+
 function contextNow() {
-  const tab = { ltd: ENTITY.ltd.label, inc: ENTITY.inc.label }[state.tab] || state.tab;
+  const tab = TAB_NAME[state.tab] || state.tab;
   const open = [...state.open].map((x) => x.split('|')[1]);
   return `${monthName(state.period)} · ${tab}${open.length ? ` · ${open.join(', ')}` : ''}`;
 }
-function openFeedback() {
+
+/** Jump to where a comment was left and flash it. */
+async function goTo(t) {
+  const a = t.anchor;
+  if (!a) return;
   const dlg = document.getElementById('feedback-dialog');
-  const ctx = contextNow();
-  const kind = h('select', { id: 'fb-kind', class: 'field' }, h('option', { value: 'idea' }, 'Idea or improvement'), h('option', { value: 'problem' }, 'Something looks wrong'), h('option', { value: 'question' }, 'Question'));
-  const ta = h('textarea', { id: 'fb-text', class: 'field', rows: '6', placeholder: 'What would make this better? Be as specific as you like: an account, a number, a step that was awkward.' });
-  const send = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Send suggestion');
-  const form = h('form', { method: 'dialog', class: 'fb-form', onsubmit: async (ev) => {
-    ev.preventDefault();
-    if (!ta.value.trim()) { ta.focus(); return; }
-    send.disabled = true;
-    try {
-      await api('POST', '/feedback', { kind: kind.value, text: ta.value, context: ctx });
-      dlg.close();
-      toast('Thanks, suggestion sent.');
-      loadFeedback();
-    } catch (err) { toast(err.message, true); send.disabled = false; }
-  } },
-  h('h2', {}, 'Suggest an improvement'),
-  h('p', { class: 'comment' }, `Sent with where you are: ${ctx}`),
-  h('label', { for: 'fb-kind' }, 'Type'), kind,
-  h('label', { for: 'fb-text' }, 'Suggestion'), ta,
-  h('div', { class: 'row-btns' }, send, h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'Cancel')));
-  dlg.replaceChildren(form);
-  dlg.showModal();
-  ta.focus();
+  if (dlg.open) dlg.close();
+  if (t.period && t.period !== state.period) await loadPeriod(t.period);
+  if (a.tab) state.tab = a.tab;
+  if (a.entity && a.tab === 'schedules') state.schedEntity = a.entity;
+  if (a.key.startsWith('acct:')) { const [, ent, ...rest] = a.key.split(':'); state.open.add(`${ent}|${rest.join(':')}`); }
+  render();
+  if (state.tab === 'schedules') await loadSchedules();
+  const el = [...document.querySelectorAll('#main [data-cmt]')].find((x) => x.dataset.cmt === a.key && !x.hasAttribute('data-cmt-nopin'));
+  if (!el) { toast('That item is not on the page any more (it may have been cleared or re-run).', true); return; }
+  let target = el;
+  if (a.col) { const c = [...el.querySelectorAll('[data-col]')].find((x) => x.dataset.col === a.col); if (c) target = c; }
+  target.scrollIntoView({ block: 'center' });
+  target.classList.add('flash');
+  setTimeout(() => target.classList.remove('flash'), 2400);
 }
-const FB_KIND = { idea: 'Idea', problem: 'Something wrong', question: 'Question' };
+
+async function copyForClaude() {
+  try {
+    const res = await fetch('/api/feedback/export', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('Could not build the export.');
+    const md = await res.text();
+    try {
+      await navigator.clipboard.writeText(md);
+      toast('Open comments copied. Paste them into Claude.');
+    } catch {
+      const dlg = document.getElementById('feedback-dialog');
+      const ta = h('textarea', { class: 'field', rows: '16', readonly: true }, md);
+      dlg.replaceChildren(h('div', { class: 'thread-dialog' }, h('h2', {}, 'Open comments'), h('p', { class: 'comment' }, 'Copy this and paste it into Claude.'), ta, h('div', { class: 'row-btns' }, h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'Close'))));
+      dlg.showModal();
+      ta.select();
+    }
+  } catch (err) { toast(err.message, true); }
+}
+
 function feedbackView() {
   const fb = state.feedback;
   if (!fb) return h('p', { class: 'loading' }, 'Loading…');
-  const head = h('div', { class: 'toolbar toolbar-left' }, h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: openFeedback }, 'Suggest an improvement'));
-  if (!fb.length) return [head, h('div', { class: 'empty-state' }, h('h2', {}, 'No suggestions yet'), h('p', {}, 'Anything that slowed you down this month, or that the old workbook did better, is worth noting.'))];
-  return [head, h('ul', { class: 'activity feedback-list' }, fb.map((f) => h('li', {},
-    h('div', {}, h('time', { datetime: f.at }, when(f.at)), h('span', { class: `fb-status s-${f.status}` }, f.status)),
-    h('div', {},
-      h('p', { class: 'fb-text' }, h('strong', {}, `${who(f.by)} · ${FB_KIND[f.kind] || f.kind}`), ` ${f.text}`),
-      f.context ? h('span', { class: 'status-word' }, f.context) : null,
-      f.reply ? h('p', { class: 'comment' }, `Reply: ${f.reply}`) : null,
-      can('admin') ? h('div', { class: 'row-btns' }, ['planned', 'done', 'declined'].filter((s) => s !== f.status).map((s) => h('button', {
-        class: 'btn btn-sm', type: 'button',
-        onclick: async () => {
-          const reply = s === 'declined' ? (prompt('Short reason (optional)') || '') : '';
-          try { state.feedback = (await api('POST', `/feedback/${f.id}`, { status: s, reply })).feedback; render(); } catch (err) { toast(err.message, true); }
-        },
-      }, { planned: 'Mark planned', done: 'Mark done', declined: 'Decline' }[s]))) : null))))];
+  const filter = state.fbFilter || 'open';
+  const all = threadsOf(fb);
+  const list = all.filter((t) => (filter === 'all' ? true : filter === 'open' ? OPEN_STATUS.has(t.status) : !OPEN_STATUS.has(t.status)));
+  const nOpen = all.filter((t) => OPEN_STATUS.has(t.status)).length;
+  const head = [
+    h('div', { class: 'toolbar toolbar-left' },
+      h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => setCommenting(true) }, 'Comment on the page'),
+      h('button', { class: 'btn btn-sm', type: 'button', onclick: () => openThread(null) }, 'General comment'),
+      h('span', { class: 'spacer' }),
+      h('button', { class: 'btn btn-sm', type: 'button', disabled: !nOpen, onclick: copyForClaude }, 'Copy open comments for Claude'),
+      h('a', { class: 'btn btn-sm', href: '/api/feedback/export?download=1' }, 'Download (.md)')),
+    h('p', { class: 'phase-note' }, 'Click "Comment on the page" (or "Comment" at the top), then click any account, journal, schedule item or month to leave a note on exactly that spot. Open comments show as numbered pins. When there is a batch, copy them and paste them into Claude to make the changes, then mark them resolved.'),
+    h('div', { class: 'seg-switch', role: 'group', 'aria-label': 'Show' },
+      [['open', `Open (${nOpen})`], ['resolved', 'Resolved'], ['all', 'All']].map(([k, l]) => h('button', { type: 'button', class: `btn btn-sm${k === filter ? ' on' : ''}`, 'aria-pressed': String(k === filter), onclick: () => { state.fbFilter = k; render(); } }, l))),
+  ];
+  if (!list.length) return [head, h('div', { class: 'empty-state' }, h('h2', {}, filter === 'open' ? 'No open comments' : 'Nothing here'), h('p', {}, 'Anything that slowed you down this month, looked wrong, or that the old workbook did better is worth a comment.'))];
+  return [head, h('div', { class: 'thread-list' }, list.map((t) => threadCard(t, { showWhere: true, goto: true })))];
 }
 
 async function init() {
@@ -861,8 +1031,12 @@ async function init() {
   }
   document.getElementById('period').addEventListener('change', (ev) => loadPeriod(ev.target.value));
   document.getElementById('run').addEventListener('click', runClose);
-  document.getElementById('suggest').addEventListener('click', openFeedback);
-  api('GET', '/feedback').then((r) => { state.feedback = r.feedback; renderTabs(); }).catch(() => {});
+  document.getElementById('comment-toggle').addEventListener('click', () => setCommenting(!state.commenting));
+  document.getElementById('cmt-done').addEventListener('click', () => setCommenting(false));
+  document.addEventListener('click', commentClick, true);
+  document.addEventListener('mouseover', commentHover);
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && state.commenting && !document.getElementById('feedback-dialog').open) setCommenting(false); });
+  api('GET', '/feedback').then((r) => { state.feedback = r.feedback; renderTabs(); decoratePins(); }).catch(() => {});
   const fromHash = location.hash.slice(1);
   const { periods } = await api('GET', '/periods');
   const start = /^\d{4}-\d{2}$/.test(fromHash) ? fromHash : (periods[0] || defaultPeriod());

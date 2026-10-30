@@ -11,6 +11,7 @@ const svc = require('./closeService');
 const { requireCapability } = require('../auth/access');
 const { writeEntityPack } = require('../output/pack');
 const ai = require('../ai/assistant');
+const comments = require('./comments');
 
 const router = express.Router();
 const ENTITY = new Set(['ltd', 'inc']);
@@ -134,22 +135,41 @@ router.get('/close/:period/schedules', requireCapability('view'), wrap(async (re
   res.json(svc.schedules(req.params.period));
 }));
 
-// Suggestions for improving the tool. Anyone signed in can leave one.
+// Comments and suggestions. Anyone signed in can leave one, pinned to a place
+// on the page (anchor) or general, and reply to an existing one (parent).
 router.post('/feedback', wrap(async (req, res) => {
   const text1 = text(req.body.text, 4000);
-  if (!text1) throw bad('Write the suggestion first.');
+  if (!text1) throw bad('Write the comment first.');
+  const parentId = req.body.parent ? String(req.body.parent) : null;
+  if (parentId) {
+    const parent = store.readFeedback().find((f) => f.id === parentId && !f.parent);
+    if (!parent) throw bad('That comment no longer exists.');
+    const rec = store.addFeedback({ by: req.user.email, text: text1, parent: parentId, kind: 'reply' });
+    // A reply reopens a resolved comment so it is not missed.
+    if (!comments.OPEN.has(parent.status)) store.addFeedback({ id: parentId, status: 'new', at: undefined });
+    return res.json({ ok: true, id: rec.id, feedback: store.readFeedback() });
+  }
   const rec = store.addFeedback({
     by: req.user.email, text: text1,
     kind: ['idea', 'problem', 'question'].includes(req.body.kind) ? req.body.kind : 'idea',
     context: text(req.body.context, 300),
+    anchor: comments.cleanAnchor(req.body.anchor),
+    period: /^\d{4}-\d{2}$/.test(req.body.period || '') ? req.body.period : null,
   });
-  res.json({ ok: true, id: rec.id });
+  res.json({ ok: true, id: rec.id, feedback: store.readFeedback() });
 }));
 router.get('/feedback', wrap(async (req, res) => res.json({ feedback: store.readFeedback() })));
+// Markdown brief of the comments, to paste back to Claude.
+router.get('/feedback/export', wrap(async (req, res) => {
+  const status = req.query.status === 'all' ? 'all' : 'open';
+  const md = comments.toMarkdown(store.readFeedback(), { status, appUrl: process.env.PUBLIC_URL || '' });
+  if (req.query.download) res.set('Content-Disposition', `attachment; filename="emperia-close-comments-${new Date().toISOString().slice(0, 10)}.md"`);
+  res.type('text/markdown; charset=utf-8').send(md);
+}));
 router.post('/feedback/:id', requireCapability('admin'), wrap(async (req, res) => {
   const status = ['new', 'planned', 'done', 'declined'].includes(req.body.status) ? req.body.status : null;
   if (!status) throw bad('Unknown status.');
-  if (!store.readFeedback().some((f) => f.id === req.params.id)) throw bad('Not found.');
+  if (!store.readFeedback().some((f) => f.id === req.params.id && !f.parent)) throw bad('Not found.');
   const reply = text(req.body.reply, 1000);
   store.addFeedback({ id: req.params.id, status, reply, updatedBy: req.user.email, at: undefined });
   res.json({ feedback: store.readFeedback() });

@@ -21,7 +21,7 @@
       </label>
       <button id="run" class="btn btn-primary" type="button">Run close</button>
     </div>
-    <button id="suggest" class="btn btn-sm" type="button">Suggest an improvement</button>
+    <button id="comment-toggle" class="btn btn-sm" type="button" aria-pressed="false" title="Click anything on the page to leave a comment on it">Comment</button>
     <div class="who" id="who"></div>
   </header>
 
@@ -31,7 +31,11 @@
     <p class="loading">Loading…</p>
   </main>
 
-  <dialog id="feedback-dialog" class="dialog" aria-label="Suggest an improvement"></dialog>
+  <dialog id="feedback-dialog" class="dialog" aria-label="Comments"></dialog>
+  <div id="cmt-banner" class="cmt-banner" hidden>
+    <span>Comment mode: click any account, journal, schedule item or month to comment on it.</span>
+    <button id="cmt-done" class="btn btn-sm" type="button">Done</button>
+  </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
