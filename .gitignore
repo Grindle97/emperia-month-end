@@ -1,0 +1,13 @@
+node_modules/
+.env
+data/
+out/
+*.log
+dev/
+
+# Never committed
+_import.tgz
+railway-env.txt
+*-env.txt
+# Client workbooks stay local (reference only)
+docs/reference/

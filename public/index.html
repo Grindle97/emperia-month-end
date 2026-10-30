@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emperia month-end close</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="app.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <span class="brand-name">Emperia</span>
+      <span class="brand-sub">Month-end close</span>
+    </div>
+    <div class="bar-controls">
+      <label class="period">
+        <span class="sr">Period</span>
+        <select id="period"></select>
+      </label>
+      <button id="run" class="btn btn-primary" type="button">Run close</button>
+    </div>
+    <button id="suggest" class="btn btn-sm" type="button">Suggest an improvement</button>
+    <div class="who" id="who"></div>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+
+  <main id="main" tabindex="-1">
+    <p class="loading">Loading…</p>
+  </main>
+
+  <dialog id="feedback-dialog" class="dialog" aria-label="Suggest an improvement"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

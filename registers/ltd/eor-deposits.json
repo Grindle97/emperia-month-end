@@ -1,0 +1,88 @@
+{
+  "register": "eor-deposits",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Overseas worker employment deposit",
+  "side": "asset",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 42342.33,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, Deposits tab (employer-of-record deposits, net per employee)",
+  "items": [
+    {
+      "id": "ltd-eor-0",
+      "description": "Adjustments: EOR deposit refund from Oyster - Tomas Tamulenas adjusted",
+      "method": "static",
+      "openingBalance": 3396.68
+    },
+    {
+      "id": "ltd-eor-1",
+      "description": "Adjustments: Fx fluctuation on EOR deposit refunds from Oyster",
+      "method": "static",
+      "openingBalance": -747.25
+    },
+    {
+      "id": "ltd-eor-2",
+      "description": "Adjustments: Small difference written off - Deposit return from Oyster - ",
+      "method": "static",
+      "openingBalance": -226.98
+    },
+    {
+      "id": "ltd-eor-3",
+      "description": "Emma Preti",
+      "method": "static",
+      "openingBalance": 39328.48
+    },
+    {
+      "id": "ltd-eor-4",
+      "description": "Exchange rate fluctuation",
+      "method": "static",
+      "openingBalance": 79.69
+    },
+    {
+      "id": "ltd-eor-5",
+      "description": "Jadir Lino dos Santos Junior",
+      "method": "static",
+      "openingBalance": 226.98
+    },
+    {
+      "id": "ltd-eor-6",
+      "description": "Muhammad Zeeshan",
+      "method": "static",
+      "openingBalance": -124.92
+    },
+    {
+      "id": "ltd-eor-7",
+      "description": "Muhammad Zonaib Imtiaz",
+      "method": "static",
+      "openingBalance": 142.0
+    },
+    {
+      "id": "ltd-eor-8",
+      "description": "Shahzaib Asim",
+      "method": "static",
+      "openingBalance": 207.93
+    },
+    {
+      "id": "ltd-eor-9",
+      "description": "Stephen Cherlapally",
+      "method": "static",
+      "openingBalance": 229.95
+    },
+    {
+      "id": "ltd-eor-10",
+      "description": "Tomas Gavelis",
+      "method": "static",
+      "openingBalance": 3226.45
+    },
+    {
+      "id": "ltd-eor-11",
+      "description": "Tomas Tamulenas",
+      "method": "static",
+      "openingBalance": -3396.68
+    }
+  ],
+  "openingTotal": 42342.33,
+  "notes": [
+    "Several employees carry small residual balances after deposit refunds (e.g. Muhammad Zeeshan -\u00a3124.92, Stephen Cherlapally \u00a3229.95). Consider clearing these to FX or write-off."
+  ]
+}

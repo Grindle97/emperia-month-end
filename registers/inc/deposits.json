@@ -1,0 +1,20 @@
+{
+  "register": "deposits",
+  "entity": "inc",
+  "openingDate": "2026-09-30",
+  "account": "Deposits",
+  "side": "asset",
+  "currency": "USD",
+  "xeroBalanceAtOpening": 2765.45,
+  "source": "Emperia Inc Xero BS Sep 2026 comment",
+  "items": [
+    {
+      "id": "inc-dep-rello",
+      "supplier": "Rello",
+      "description": "Rent deposit",
+      "method": "static",
+      "openingBalance": 2765.45
+    }
+  ],
+  "openingTotal": 2765.45
+}

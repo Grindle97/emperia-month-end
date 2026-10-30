@@ -1,0 +1,20 @@
+{
+  "register": "deposits",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Deposits",
+  "side": "asset",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 5000.0,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, Deposits tab",
+  "items": [
+    {
+      "id": "ltd-dep-bliss",
+      "supplier": "Bliss Growth Ltd",
+      "description": "Credit for next hire",
+      "method": "static",
+      "openingBalance": 5000.0
+    }
+  ],
+  "openingTotal": 5000.0
+}

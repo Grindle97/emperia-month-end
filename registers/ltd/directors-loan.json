@@ -1,0 +1,19 @@
+{
+  "register": "directors-loan",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Directors' Loan Account",
+  "side": "liability",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 80.43,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, DLA tab",
+  "items": [
+    {
+      "id": "ltd-dla-olga",
+      "description": "Olga Dogadkina, balance owed by the company",
+      "method": "static",
+      "openingBalance": 80.43
+    }
+  ],
+  "openingTotal": 80.43
+}

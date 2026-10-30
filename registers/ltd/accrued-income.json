@@ -1,0 +1,12 @@
+{
+  "register": "accrued-income",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Accrued Income",
+  "side": "asset",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 0.0,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, Accrued Income tab",
+  "items": [],
+  "openingTotal": 0.0
+}

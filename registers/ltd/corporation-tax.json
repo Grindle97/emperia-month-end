@@ -1,0 +1,22 @@
+{
+  "register": "corporation-tax",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Provision for Corporation Tax",
+  "side": "liability",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": -83425.27,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, CT tab",
+  "notes": [
+    "Xero holds an \u00a383,425.27 debit (FY26 R&D claim per BS Review comment) that the CT schedule does not include. Add the FY26 claim here once confirmed."
+  ],
+  "items": [
+    {
+      "id": "ltd-ct-fy24",
+      "description": "R&D claim FY24, received 5 June 2025",
+      "method": "static",
+      "openingBalance": 0.0
+    }
+  ],
+  "openingTotal": 0.0
+}

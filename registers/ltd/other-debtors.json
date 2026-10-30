@@ -1,0 +1,19 @@
+{
+  "register": "other-debtors",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Other debtors",
+  "side": "asset",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 2090.0,
+  "source": "Emperia Ltd BS Review Sep 2026 comment",
+  "items": [
+    {
+      "id": "ltd-od-web",
+      "description": "Website design advance, release when supplier invoice received",
+      "method": "static",
+      "openingBalance": 2090.0
+    }
+  ],
+  "openingTotal": 2090.0
+}

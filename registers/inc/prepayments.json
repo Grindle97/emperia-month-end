@@ -1,0 +1,46 @@
+{
+  "register": "prepayments",
+  "entity": "inc",
+  "openingDate": "2026-09-30",
+  "account": "Prepayments",
+  "side": "asset",
+  "currency": "USD",
+  "xeroBalanceAtOpening": 16930.0,
+  "source": "Emperia Inc BS Reconciliation Sep 2026, Prepayment tab (Balance Check column)",
+  "notes": [
+    "Inc releases event and travel prepayments in the month the event or trip happens.",
+    "Open question: Rose Property Aug 2026 rent ($6,759.47) shows a release in two month columns on the Sep schedule; confirm only one release was posted in Xero."
+  ],
+  "items": [
+    {
+      "id": "inc-pp-24",
+      "supplier": "National Retail Federation, Inc.",
+      "expenseAccount": "Marketing - Events",
+      "invoiceNumber": "1441969-70-71-72-20260112",
+      "invoiceDate": "2026-01-12",
+      "amount": 14150.0,
+      "start": "2027-01-10",
+      "end": "2027-01-12",
+      "method": "on_end_date",
+      "monthlyRelease": null,
+      "openingBalance": 14150.0,
+      "expenseAccountCode": "400a"
+    },
+    {
+      "id": "inc-pp-41",
+      "supplier": "Aparte Reiser AS SRL",
+      "expenseAccount": "Travel - International",
+      "invoiceNumber": null,
+      "invoiceDate": "2026-08-19",
+      "amount": 2780.0,
+      "start": "2026-10-01",
+      "end": "2026-10-04",
+      "method": "on_end_date",
+      "monthlyRelease": null,
+      "openingBalance": 2780.0,
+      "expenseAccountCode": "494",
+      "note": "Mapped to Travel - International (494) on setup; check the bill coding in Xero."
+    }
+  ],
+  "openingTotal": 16930.0
+}

@@ -1,0 +1,12 @@
+{
+  "register": "deferred-income",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Income in Advance",
+  "side": "liability",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 0.0,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, Deferred income tab",
+  "items": [],
+  "openingTotal": 0.0
+}

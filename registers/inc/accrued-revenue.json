@@ -1,0 +1,22 @@
+{
+  "register": "accrued-revenue",
+  "entity": "inc",
+  "openingDate": "2026-09-30",
+  "account": "Accrued Income",
+  "side": "asset",
+  "currency": "USD",
+  "xeroBalanceAtOpening": 180150.71,
+  "source": "Emperia Inc BS Reconciliation Sep 2026, Accrued Revenue tab",
+  "notes": [
+    "Xero also holds Walmart revenue accrued in September and invoiced in October ($172,356.52 per BS Review comment), which is not on the schedule. Add it with its contract details."
+  ],
+  "items": [
+    {
+      "id": "inc-acc-schedule",
+      "description": "Balance per Sep schedule (Brex interest and other accruals; itemise)",
+      "method": "static",
+      "openingBalance": 7794.19
+    }
+  ],
+  "openingTotal": 7794.19
+}

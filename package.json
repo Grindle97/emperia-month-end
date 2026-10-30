@@ -1,0 +1,27 @@
+{
+  "name": "emperia-month-end",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Emperia month-end close agent: balance sheet reconciliations, prepayment review and approved journals for Emperia Ltd and Emperia VR Inc (RORA).",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "connect": "node server.js",
+    "doctor": "node scripts/doctor.js",
+    "close": "node scripts/run-close.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^7.2.0",
+    "jose": "^5.10.0",
+    "xero-node": "^7.1.0"
+  }
+}

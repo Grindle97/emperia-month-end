@@ -1,0 +1,25 @@
+{
+  "register": "deferred-revenue",
+  "entity": "inc",
+  "openingDate": "2026-09-30",
+  "account": "Income in Advance",
+  "side": "liability",
+  "currency": "USD",
+  "xeroBalanceAtOpening": 13749.83,
+  "source": "Emperia Inc BS Reconciliation Sep 2026, Deferred Revenue tab",
+  "items": [
+    {
+      "id": "inc-def-inv0018",
+      "customer": "Inco LLC d/b/a Invisible North",
+      "invoiceNumber": "INV-0018",
+      "amount": 55000.0,
+      "start": "2026-01-01",
+      "end": "2026-12-31",
+      "method": "straight_line",
+      "monthlyRelease": 4583.33,
+      "revenueAccount": null,
+      "openingBalance": 13750.0
+    }
+  ],
+  "openingTotal": 13750.0
+}

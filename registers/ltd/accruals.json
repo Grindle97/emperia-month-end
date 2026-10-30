@@ -1,0 +1,46 @@
+{
+  "register": "accruals",
+  "entity": "ltd",
+  "openingDate": "2026-09-30",
+  "account": "Accruals",
+  "side": "liability",
+  "currency": "GBP",
+  "xeroBalanceAtOpening": 12531.46,
+  "source": "Emperia Ltd BS Reconciliation Sep 2026, Accruals tab",
+  "notes": [
+    "Accountomate \u00a32,000 has been held unchanged since May 2026; confirm it is still owed."
+  ],
+  "items": [
+    {
+      "id": "ltd-acc-11",
+      "supplier": "Google Cloud",
+      "expenseAccount": "IT - Software - Cloud Services",
+      "method": "static",
+      "openingBalance": 2601.37
+    },
+    {
+      "id": "ltd-acc-13",
+      "supplier": "Payroll - Tomas Gavelis",
+      "expenseAccount": null,
+      "method": "static",
+      "openingBalance": 2860.09
+    },
+    {
+      "id": "ltd-acc-15",
+      "supplier": "F. Initiatives Group Ltd",
+      "expenseAccount": "Professional fees",
+      "method": "static",
+      "openingBalance": 5070.0,
+      "expenseAccountCode": "443"
+    },
+    {
+      "id": "ltd-acc-17",
+      "supplier": "Accountomate",
+      "expenseAccount": "Audit & Accountancy Fees",
+      "method": "static",
+      "openingBalance": 2000.0,
+      "expenseAccountCode": "401"
+    }
+  ],
+  "openingTotal": 12531.46
+}
