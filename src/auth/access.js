@@ -53,12 +53,13 @@ function requireUser(opts = {}) {
   return async (req, res, next) => {
     let email = null;
     try {
-      if (accessConfigured() || opts.verify) {
+      if (!IS_PROD && env.DEV_USER_EMAIL && !opts.verify) {
+        // Local only: never in production, whatever else is set.
+        email = String(env.DEV_USER_EMAIL).toLowerCase();
+      } else if (accessConfigured() || opts.verify) {
         const token = tokenFrom(req);
         if (!token) return deny(res, 401, 'Not signed in.');
         email = await verify(token);
-      } else if (!IS_PROD && env.DEV_USER_EMAIL) {
-        email = String(env.DEV_USER_EMAIL).toLowerCase();
       } else {
         console.error('Refusing request: Cloudflare Access is not configured (CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD).');
         return deny(res, 503, 'Sign-in is not configured.');
